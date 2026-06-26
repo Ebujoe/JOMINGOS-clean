@@ -176,3 +176,76 @@ class VitalSigns(models.Model):
             'medium': 'Medium Risk',
             'high': 'HIGH RISK'
         }.get(self.news2_level, '')
+
+
+# ============================================================================
+# AUTOMATIC DETERIORATION DETECTION
+# ============================================================================
+# This signal handler automatically detects when a patient is deteriorating
+# as soon as vital signs are recorded. No manual intervention needed!
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.utils import timezone
+
+@receiver(post_save, sender=VitalSigns)
+def auto_detect_deterioration(sender, instance, created, **kwargs):
+    """
+    This function runs AUTOMATICALLY every time a new VitalSigns record is created.
+
+    It's like a trigger: When vital signs are recorded → This function runs
+
+    Think of it like: A doorbell that rings when someone records vitals
+    """
+
+    # Only run for NEW vitals (not when updating existing ones)
+    if not created:
+        return
+
+    try:
+        from deterioration_alerts.inference_service import get_detector
+        from deterioration_alerts.models import DeteriorationAlert
+
+        # Step 1: Get the detector (loads the brain/model)
+        detector = get_detector()
+
+        # Step 2: Prepare the vital signs data for prediction
+        # This is EXACTLY the same format the model was trained on
+        vital_data = {
+            'news2_total': instance.news2_total,
+            'rr_score': instance.news2_respiratory_score,
+            'spo2_score': instance.news2_spo2_score,
+            'sbp_score': instance.news2_bp_score,
+            'hr_score': instance.news2_hr_score,
+            'temp_score': instance.news2_temp_score,
+            'o2_score': 0,  # You can get this from instance if available
+            'heart_rate_roc': 0,  # Will calculate properly later
+            'resp_rate_roc': 0,
+            'spo2_roc': 0,
+            'systolic_bp_roc': 0,
+            'trend_score': 0,
+            'combined_risk_score': 0,
+        }
+
+        # Step 3: Make prediction
+        prediction = detector.predict(vital_data)
+
+        # Step 4: If the model says it's critical, create an alert
+        if prediction['is_critical'] or prediction['alert_level'] in ['AMBER', 'RED']:
+            # Create an alert in the database
+            DeteriorationAlert.objects.create(
+                patient=instance.patient,
+                alert_type='ml_prediction',
+                priority='critical' if prediction['alert_level'] == 'RED' else 'high',
+                status='active',
+                trigger_value=prediction['probability'],
+                trigger_reason=f"ML model prediction: {prediction['alert_level']} ({prediction['confidence']:.1f}%)",
+                related_vital=instance,
+            )
+
+            # Print to console so you can see it working
+            print(f"[ALERT] {instance.patient}: {prediction['alert_level']} alert generated")
+
+    except Exception as e:
+        # If something goes wrong, print the error (don't crash the app)
+        print(f"[ERROR] Deterioration detection failed: {e}")

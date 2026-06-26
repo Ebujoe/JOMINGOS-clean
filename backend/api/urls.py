@@ -19,6 +19,7 @@ from patients.views_api import PatientViewSet
 from care_notes.views_api import CareNoteViewSet
 from medications.views_api import MedicationViewSet
 from vitals.views_api import VitalSignsViewSet
+from deterioration_alerts.views_api import DeteriorationAlertViewSet
 
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -28,6 +29,7 @@ router.register(r"patients", PatientViewSet, basename="patient")
 router.register(r"care-notes", CareNoteViewSet, basename="care-note")
 router.register(r"medications", MedicationViewSet, basename="medication")
 router.register(r"vitals", VitalSignsViewSet, basename="vitals")
+router.register(r"alerts", DeteriorationAlertViewSet, basename="alert")
 
 
 schema_view = get_schema_view(
