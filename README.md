@@ -2,6 +2,12 @@
 
 # Githubrepository - (https://github.com/Ebujoe/JOMINGOS-clean)
 
+# Frontend - (https://jomingos-frontend.vercel.app/)
+
+# Backend - (https://jomingos.onrender.com/)
+
+
+
 A complete healthcare management platform for care homes and nursing facilities. Built with Django backend and Next.js frontend. Handles everything from patient records to staff scheduling to medication tracking with real-time dashboards.
 
 ## Project Overview
