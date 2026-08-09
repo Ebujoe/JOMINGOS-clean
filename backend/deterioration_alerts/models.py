@@ -91,7 +91,7 @@ class DeteriorationAlert(models.Model):
     resolved_at = models.DateTimeField(null=True, blank=True)
 
     # Related analysis
-    related_vital = models.ForeignKey(VitalSigns, on_delete=models.SET_NULL, null=True, blank=True)
+    related_vital = models.ForeignKey(VitalSigns, on_delete=models.SET_NULL, null=True, blank=True, related_name='deterioration_alerts')
     related_trend = models.ForeignKey(TrendAnalysis, on_delete=models.SET_NULL, null=True, blank=True)
 
     # Alert fatigue suppression

@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Vital Signs Dashboard{% endblock %}
+{% block nav_vitals %}active{% endblock %}
+
+{% block content %}
+<div class="app-content-header">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-sm-6">
+        <h3 class="mb-0">
+          <i class="bi bi-heart-pulse-fill me-2"></i>Vital Signs Dashboard
+        </h3>
+      </div>
+      <div class="col-sm-6 text-end">
+        <small class="text-muted">
+          <i class="bi bi-calendar3 me-1"></i><span id="live-date-header"></span>
+        </small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app-content">
+  <div class="container-fluid">
+    <!-- Summary -->
+    <div class="row mb-3">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-body">
+            <div class="row text-center">
+              <div class="col-md-4">
+                <div><strong>{{ vitals_data|length }}</strong></div>
+                <small class="text-muted">Recent Vital Recordings</small>
+              </div>
+              <div class="col-md-4 border-start">
+                <div><strong>Monitoring</strong></div>
+                <small class="text-muted">Active</small>
+              </div>
+              <div class="col-md-4 border-start">
+                <div><strong>System Online</strong></div>
+                <small class="text-muted">All systems operational</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vitals Table -->
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">
+          <i class="bi bi-table me-2"></i>Latest Patient Vital Signs
+        </h5>
+      </div>
+      <div class="card-body p-0">
+        {% if vitals_data %}
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 200px;">Patient</th>
+                  <th>HR (bpm)</th>
+                  <th>RR (br/m)</th>
+                  <th>SpO2 (%)</th>
+                  <th>Temp (°C)</th>
+                  <th>BP (mmHg)</th>
+                  <th style="width: 120px;">NEWS2 Score</th>
+                  <th style="width: 150px;">Risk Level</th>
+                  <th style="width: 180px;">Alerts</th>
+                  <th style="width: 140px;">Recorded By</th>
+                  <th style="width: 150px;">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in vitals_data %}
+                  {% with vital=item.vital alerts=item.alerts %}
+                    <tr>
+                      <td>
+                        <a href="{% url 'patient_vital_history' vital.patient.id %}" style="text-decoration: none; color: inherit;">
+                          <strong>{{ vital.patient.get_full_name }}</strong>
+                          <br><small class="text-muted">ID: {{ vital.patient.id }}</small>
+                        </a>
+                      </td>
+                      <td>
+                        <span class="{% if vital.news2_hr_score == 0 %}vital-ok{% elif vital.news2_hr_score <= 1 %}vital-warn{% else %}vital-danger{% endif %}">
+                          <strong>{{ vital.heart_rate|default:"—" }}</strong>
+                        </span>
+                      </td>
+                      <td>
+                        <span class="{% if vital.news2_respiratory_score == 0 %}vital-ok{% elif vital.news2_respiratory_score <= 1 %}vital-warn{% else %}vital-danger{% endif %}">
+                          <strong>{{ vital.respiratory_rate|default:"—" }}</strong>
+                        </span>
+                      </td>
+                      <td>
+                        <span class="{% if vital.news2_spo2_score == 0 %}vital-ok{% elif vital.news2_spo2_score <= 1 %}vital-warn{% else %}vital-danger{% endif %}">
+                          <strong>{{ vital.oxygen_saturation|default:"—" }}</strong>
+                        </span>
+                      </td>
+                      <td>
+                        <span class="{% if vital.news2_temp_score == 0 %}vital-ok{% elif vital.news2_temp_score <= 1 %}vital-warn{% else %}vital-danger{% endif %}">
+                          <strong>{{ vital.temperature|default:"—" }}</strong>
+                        </span>
+                      </td>
+                      <td>
+                        <span class="{% if vital.news2_bp_score == 0 %}vital-ok{% elif vital.news2_bp_score <= 1 %}vital-warn{% else %}vital-danger{% endif %}">
+                          <strong>{{ vital.bp_systolic|default:"—" }}/{{ vital.bp_diastolic|default:"—" }}</strong>
+                        </span>
+                      </td>
+                      <td>
+                        {% with score=vital.news2_total %}
+                          {% if score <= 4 %}
+                            <span class="badge bg-success" style="font-size: 14px; padding: 6px 12px;">{{ score }}</span>
+                          {% elif score <= 6 %}
+                            <span class="badge bg-warning text-dark" style="font-size: 14px; padding: 6px 12px;">{{ score }}</span>
+                          {% else %}
+                            <span class="badge bg-danger" style="font-size: 14px; padding: 6px 12px;">{{ score }}</span>
+                          {% endif %}
+                        {% endwith %}
+                      </td>
+                      <td>
+                        {% with level=vital.news2_level %}
+                          {% if level == "low" %}
+                            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Low Risk</span>
+                          {% elif level == "medium" %}
+                            <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle me-1"></i>Medium</span>
+                          {% else %}
+                            <span class="badge bg-danger"><i class="bi bi-exclamation-circle me-1"></i>HIGH RISK</span>
+                          {% endif %}
+                        {% endwith %}
+                      </td>
+                      <td>
+                        {% if alerts %}
+                          {% for alert in alerts %}
+                            <span class="badge {% if alert.priority == 'critical' %}bg-danger{% elif alert.priority == 'high' %}bg-warning text-dark{% else %}bg-info{% endif %} mb-1">
+                              <i class="bi bi-exclamation-circle me-1"></i>{{ alert.priority|upper }}
+                            </span>
+                            <br>
+                          {% endfor %}
+                        {% else %}
+                          <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>No Alerts</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <small>{{ vital.recorded_by.get_full_name|default:vital.recorded_by.username }}</small>
+                      </td>
+                      <td>
+                        <small class="text-muted">{{ vital.recorded_at|date:"d/m/Y H:i" }}</small>
+                      </td>
+                    </tr>
+                  {% endwith %}
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="alert alert-info m-3" role="alert">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>No vital signs recorded yet.</strong> Start recording patient vital signs to see them here.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Reference -->
+    <div class="row mt-3">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h6 class="mb-0">NEWS2 Risk Levels</h6>
+          </div>
+          <div class="card-body">
+            <div class="row text-center small">
+              <div class="col-md-3">
+                <span class="badge bg-success" style="font-size: 13px; padding: 6px 12px;">0-4</span><br>
+                <strong>Low Risk</strong><br>
+                <small class="text-muted">Routine monitoring</small>
+              </div>
+              <div class="col-md-3">
+                <span class="badge bg-warning text-dark" style="font-size: 13px; padding: 6px 12px;">5-6</span><br>
+                <strong>Medium Risk</strong><br>
+                <small class="text-muted">Increased monitoring</small>
+              </div>
+              <div class="col-md-3">
+                <span class="badge bg-warning" style="font-size: 13px; padding: 6px 12px;">7-8</span><br>
+                <strong>High Risk</strong><br>
+                <small class="text-muted">Senior review</small>
+              </div>
+              <div class="col-md-3">
+                <span class="badge bg-danger" style="font-size: 13px; padding: 6px 12px;">9+</span><br>
+                <strong>Critical</strong><br>
+                <small class="text-muted">Immediate action</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Update live date
+  function updateLiveDate() {
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const today = new Date().toLocaleDateString('en-US', options);
+    document.getElementById('live-date-header').textContent = today;
+  }
+  updateLiveDate();
+  setInterval(updateLiveDate, 60000);
+</script>
+{% endblock %}

@@ -154,3 +154,13 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@jomingos.local")
 
 # Frontend URL for reset links
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+# JWT Token Settings (DISABLED expiration for testing/demo)
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=365),  # 1 year - effectively no expiration
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=365),  # 1 year
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
+}

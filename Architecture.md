@@ -66,11 +66,11 @@ HOUR 3  | HR: 92  RR: 22  Temp: 38.2  SpO2: 94  → NEWS2: 3 ✓ Stable
         |
 HOUR 4  | HR: 102 RR: 24  Temp: 38.5  SpO2: 93  → NEWS2: 5 ⚠ MEDIUM RISK
         | Trend: Rapid increase detected (slope = +0.4/reading)
-        | 🔔 ALERT: "Rapid NEWS2 rise" (Priority: HIGH)
+        | ALERT: "Rapid NEWS2 rise" (Priority: HIGH)
         |
 HOUR 5  | HR: 110 RR: 26  Temp: 38.8  SpO2: 91  → NEWS2: 7 🚨 HIGH RISK
         | Trend: Still climbing (slope = +0.5/reading)
-        | 🔔 ALERT: "NEWS2 Threshold Breach (≥7)" (Priority: CRITICAL)
+        | ALERT: "NEWS2 Threshold Breach (≥7)" (Priority: CRITICAL)
         | → Dashboard notifies care staff immediately
         |
 HOUR 6  | Intervention begins after staff sees dashboard alert

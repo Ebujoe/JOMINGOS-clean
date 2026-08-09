@@ -191,14 +191,21 @@ from django.utils import timezone
 @receiver(post_save, sender=VitalSigns)
 def auto_detect_deterioration(sender, instance, created, **kwargs):
     """
-    This function runs AUTOMATICALLY every time a new VitalSigns record is created.
+    RESEARCH-BASED PREDICTIVE DETERIORATION DETECTION
 
-    It's like a trigger: When vital signs are recorded → This function runs
+    This implements a PREDICTIVE approach:
+    1. Track vitals OVER TIME for each patient
+    2. Calculate TRENDS (rate of change)
+    3. Alert BEFORE patient becomes critical (preventive)
+    4. Prevent urgent situations through early warning
 
-    Think of it like: A doorbell that rings when someone records vitals
+    Algorithm:
+    - Get last 5 vitals for patient (time series)
+    - Calculate rate of change for each vital
+    - Check if trending toward critical (e.g., SpO2 dropping, HR rising)
+    - Alert on TRENDS, not just absolute values
     """
 
-    # Only run for NEW vitals (not when updating existing ones)
     if not created:
         return
 
@@ -206,11 +213,50 @@ def auto_detect_deterioration(sender, instance, created, **kwargs):
         from deterioration_alerts.inference_service import get_detector
         from deterioration_alerts.models import DeteriorationAlert
 
-        # Step 1: Get the detector (loads the brain/model)
-        detector = get_detector()
+        # ========== STEP 1: GET HISTORICAL VITALS (TREND ANALYSIS) ==========
+        previous_vitals = VitalSigns.objects.filter(
+            patient=instance.patient
+        ).exclude(id=instance.id).order_by('-recorded_at')[:5]
 
-        # Step 2: Prepare the vital signs data for prediction
-        # This is EXACTLY the same format the model was trained on
+        # Calculate RATE OF CHANGE (trends)
+        heart_rate_roc = 0
+        resp_rate_roc = 0
+        spo2_roc = 0
+        systolic_bp_roc = 0
+        trend_score = 0
+
+        if previous_vitals.count() > 0:
+            prev_vital = previous_vitals[0]
+            time_diff = (instance.recorded_at - prev_vital.recorded_at).total_seconds() / 3600  # hours
+
+            if time_diff > 0:
+                # Calculate rate of change per hour
+                if instance.heart_rate and prev_vital.heart_rate:
+                    heart_rate_roc = (float(instance.heart_rate) - float(prev_vital.heart_rate)) / time_diff
+                    if heart_rate_roc > 10:  # HR rising fast = risk
+                        trend_score += 2
+
+                if instance.respiratory_rate and prev_vital.respiratory_rate:
+                    resp_rate_roc = (float(instance.respiratory_rate) - float(prev_vital.respiratory_rate)) / time_diff
+                    if resp_rate_roc > 5:  # RR rising = risk
+                        trend_score += 2
+
+                if instance.oxygen_saturation and prev_vital.oxygen_saturation:
+                    spo2_roc = (float(instance.oxygen_saturation) - float(prev_vital.oxygen_saturation)) / time_diff
+                    if spo2_roc < -2:  # SpO2 dropping = HIGH RISK
+                        trend_score += 3
+
+                if instance.bp_systolic and prev_vital.bp_systolic:
+                    systolic_bp_roc = (float(instance.bp_systolic) - float(prev_vital.bp_systolic)) / time_diff
+                    if systolic_bp_roc < -10:  # BP dropping = risk
+                        trend_score += 2
+
+                if instance.temperature and prev_vital.temperature:
+                    temp_roc = (float(instance.temperature) - float(prev_vital.temperature)) / time_diff
+                    if abs(temp_roc) > 0.5:  # Temp changing rapidly
+                        trend_score += 1
+
+        # ========== STEP 2: PREPARE DATA FOR PREDICTION ==========
         vital_data = {
             'news2_total': instance.news2_total,
             'rr_score': instance.news2_respiratory_score,
@@ -218,34 +264,62 @@ def auto_detect_deterioration(sender, instance, created, **kwargs):
             'sbp_score': instance.news2_bp_score,
             'hr_score': instance.news2_hr_score,
             'temp_score': instance.news2_temp_score,
-            'o2_score': 0,  # You can get this from instance if available
-            'heart_rate_roc': 0,  # Will calculate properly later
-            'resp_rate_roc': 0,
-            'spo2_roc': 0,
-            'systolic_bp_roc': 0,
-            'trend_score': 0,
-            'combined_risk_score': 0,
+            'o2_score': 0,
+            'heart_rate_roc': heart_rate_roc,  # NOW CALCULATED!
+            'resp_rate_roc': resp_rate_roc,  # NOW CALCULATED!
+            'spo2_roc': spo2_roc,  # NOW CALCULATED!
+            'systolic_bp_roc': systolic_bp_roc,  # NOW CALCULATED!
+            'trend_score': trend_score,  # NOW CALCULATED!
+            'combined_risk_score': instance.news2_total + trend_score,  # Combines absolute + trend
         }
 
-        # Step 3: Make prediction
+        # ========== STEP 3: MAKE PREDICTION ==========
+        detector = get_detector()
         prediction = detector.predict(vital_data)
 
-        # Step 4: If the model says it's critical, create an alert
-        if prediction['is_critical'] or prediction['alert_level'] in ['AMBER', 'RED']:
-            # Create an alert in the database
+        # ========== STEP 4: DETERMINE ALERT TRIGGER ==========
+        # PREDICTIVE: Alert if:
+        # 1. Current status is CRITICAL (NEWS2 >= 7), OR
+        # 2. TRENDING towards critical (adverse trends detected)
+        should_alert = False
+        alert_reason = ""
+
+        if prediction['is_critical'] or prediction['alert_level'] == 'RED':
+            should_alert = True
+            alert_reason = f"CRITICAL: {prediction['alert_level']} ({prediction['confidence']:.1f}%) - NEWS2 score {instance.news2_total}"
+
+        elif prediction['alert_level'] == 'AMBER' and trend_score > 0:
+            should_alert = True
+            alert_reason = f"HIGH RISK with DETERIORATING TREND: {prediction['alert_level']} + Trend Score {trend_score}"
+
+        elif trend_score >= 5:
+            should_alert = True
+            alert_reason = f"PREDICTIVE ALERT: Patient trending toward critical (Trend Score: {trend_score})"
+
+        # ========== STEP 5: CREATE ALERT IF NEEDED ==========
+        if should_alert:
             DeteriorationAlert.objects.create(
                 patient=instance.patient,
                 alert_type='ml_prediction',
                 priority='critical' if prediction['alert_level'] == 'RED' else 'high',
                 status='active',
                 trigger_value=prediction['probability'],
-                trigger_reason=f"ML model prediction: {prediction['alert_level']} ({prediction['confidence']:.1f}%)",
+                trigger_reason=alert_reason,
                 related_vital=instance,
             )
 
-            # Print to console so you can see it working
-            print(f"[ALERT] {instance.patient}: {prediction['alert_level']} alert generated")
+            print(f"\n{'='*70}")
+            print(f"[RESEARCH-BASED ALERT] {instance.patient.get_full_name()}")
+            print(f"{'='*70}")
+            print(f"Alert Level: {prediction['alert_level']}")
+            print(f"Current NEWS2: {instance.news2_total}")
+            print(f"Trend Score: {trend_score}")
+            print(f"Heart Rate Change: {heart_rate_roc:.1f} bpm/hour")
+            print(f"SpO2 Change: {spo2_roc:.1f}%/hour")
+            print(f"Respiratory Rate Change: {resp_rate_roc:.1f} br/hour")
+            print(f"Systolic BP Change: {systolic_bp_roc:.1f} mmHg/hour")
+            print(f"Reason: {alert_reason}")
+            print(f"{'='*70}\n")
 
     except Exception as e:
-        # If something goes wrong, print the error (don't crash the app)
         print(f"[ERROR] Deterioration detection failed: {e}")

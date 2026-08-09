@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Patient Vital History - {{ patient.get_full_name }}{% endblock %}
+{% block nav_vitals %}active{% endblock %}
+
+{% block content %}
+<div class="app-content-header">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-sm-8">
+        <h3 class="mb-0">
+          <i class="bi bi-clock-history me-2"></i>Vital Signs History
+        </h3>
+        <small class="text-muted">{{ patient.get_full_name }} — Complete trend analysis with NEWS2 scoring</small>
+      </div>
+      <div class="col-sm-4 text-end">
+        <a href="{% url 'patient_detail' patient.pk %}" class="btn btn-sm btn-secondary">
+          <i class="bi bi-arrow-left me-1"></i>Back
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app-content">
+  <div class="container-fluid">
+
+    <!-- Patient Summary -->
+    <div class="row mb-3">
+      <div class="col-md-12">
+        <div class="card" style="background: #f8f9fa;">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-md-6">
+                <div><strong>{{ patient.get_full_name }}</strong></div>
+                <div class="small text-muted">ID: {{ patient.id }} | DOB: {{ patient.date_of_birth|date:"d/m/Y" }}</div>
+              </div>
+              <div class="col-md-6 text-end">
+                <span class="badge bg-secondary me-2">{{ total_recordings }} Recording{{ total_recordings|pluralize }}</span>
+                <span class="badge bg-danger">{{ alert_count }} Alert{{ alert_count|pluralize }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vital History Timeline -->
+    {% if history_data %}
+      {% for entry in history_data|dictsort:"sequence" %}
+        <div class="row mb-3">
+          <div class="col-md-12">
+            <div class="card" style="{% if entry.prediction_reasoning.alert_triggered %}border-left: 4px solid #dc2626;{% else %}border-left: 4px solid #198754;{% endif %}">
+
+              <!-- Recording Header -->
+              <div class="card-header" style="background: #f8f9fa; padding: 12px 20px;">
+                <div class="row align-items-center">
+                  <div class="col-md-8">
+                    <div><strong>Recording #{{ entry.sequence }}</strong></div>
+                    <small class="text-muted">{{ entry.vital.recorded_at|date:"d/m/Y H:i" }} • {{ entry.vital.recorded_by.get_full_name|default:entry.vital.recorded_by.username }}</small>
+                  </div>
+                  <div class="col-md-4 text-end">
+                    <span class="badge {% if entry.prediction_reasoning.news2_level == 'high' %}bg-danger{% elif entry.prediction_reasoning.news2_level == 'medium' %}bg-warning{% else %}bg-success{% endif %}" style="font-size: 13px; padding: 5px 10px;">
+                      NEWS2: {{ entry.prediction_reasoning.news2_score }}
+                    </span>
+                    {% if entry.prediction_reasoning.alert_triggered %}
+                      <span class="badge bg-danger ms-2" style="font-size: 13px; padding: 5px 10px;">ALERT</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+
+              <div class="card-body">
+
+                <!-- Current Vitals -->
+                <div class="mb-3">
+                  <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                      <tbody>
+                        <tr>
+                          <td style="width: 25%;"><strong>Heart Rate</strong></td>
+                          <td>{{ entry.vital.heart_rate }} bpm</td>
+                          <td class="text-end"><span class="badge {% if entry.vital.news2_hr_score == 0 %}bg-success{% elif entry.vital.news2_hr_score <= 1 %}bg-warning{% else %}bg-danger{% endif %}">{{ entry.vital.news2_hr_score }}</span></td>
+                        </tr>
+                        <tr>
+                          <td><strong>Respiratory Rate</strong></td>
+                          <td>{{ entry.vital.respiratory_rate }} br/min</td>
+                          <td class="text-end"><span class="badge {% if entry.vital.news2_respiratory_score == 0 %}bg-success{% elif entry.vital.news2_respiratory_score <= 1 %}bg-warning{% else %}bg-danger{% endif %}">{{ entry.vital.news2_respiratory_score }}</span></td>
+                        </tr>
+                        <tr>
+                          <td><strong>SpO₂</strong></td>
+                          <td>{{ entry.vital.oxygen_saturation }}%</td>
+                          <td class="text-end"><span class="badge {% if entry.vital.news2_spo2_score == 0 %}bg-success{% elif entry.vital.news2_spo2_score <= 1 %}bg-warning{% else %}bg-danger{% endif %}">{{ entry.vital.news2_spo2_score }}</span></td>
+                        </tr>
+                        <tr>
+                          <td><strong>Blood Pressure</strong></td>
+                          <td>{{ entry.vital.bp_systolic }}/{{ entry.vital.bp_diastolic }} mmHg</td>
+                          <td class="text-end"><span class="badge {% if entry.vital.news2_bp_score == 0 %}bg-success{% elif entry.vital.news2_bp_score <= 1 %}bg-warning{% else %}bg-danger{% endif %}">{{ entry.vital.news2_bp_score }}</span></td>
+                        </tr>
+                        <tr>
+                          <td><strong>Temperature</strong></td>
+                          <td>{{ entry.vital.temperature }}°C</td>
+                          <td class="text-end"><span class="badge {% if entry.vital.news2_temp_score == 0 %}bg-success{% elif entry.vital.news2_temp_score <= 1 %}bg-warning{% else %}bg-danger{% endif %}">{{ entry.vital.news2_temp_score }}</span></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div class="row mb-3">
+                  <div class="col-md-12">
+                    <div style="background: #f8f9fa; padding: 12px; border-radius: 4px;">
+                      <div><strong>NEWS2 Total Score: </strong><span class="badge {% if entry.prediction_reasoning.news2_level == 'high' %}bg-danger{% elif entry.prediction_reasoning.news2_level == 'medium' %}bg-warning{% else %}bg-success{% endif %}">{{ entry.prediction_reasoning.news2_score }}</span></div>
+                      <small class="text-muted">{{ entry.prediction_reasoning.news2_level|title }} Risk</small>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Trend Analysis -->
+                {% if entry.roc_data.hr_roc %}
+                  <div class="mb-3">
+                    <div style="background: #f8f9fa; padding: 12px; border-radius: 4px; margin-bottom: 10px;">
+                      <strong>Trend Analysis (Rate of Change per Hour)</strong>
+                    </div>
+                    <div class="table-responsive">
+                      <table class="table table-sm mb-0">
+                        <tbody>
+                          <tr>
+                            <td style="width: 25%;"><strong>Heart Rate</strong></td>
+                            <td>{{ entry.roc_data.hr_roc|floatformat:2 }} bpm/hr</td>
+                            <td class="text-end">
+                              <span class="badge {% if entry.roc_data.hr_roc > 10 %}bg-danger{% elif entry.roc_data.hr_roc > 0 %}bg-warning{% else %}bg-success{% endif %}">
+                                {% if entry.roc_data.hr_roc > 10 %}Rising{% elif entry.roc_data.hr_roc > 0 %}Slight increase{% elif entry.roc_data.hr_roc < 0 %}Decreasing{% else %}Stable{% endif %}
+                              </span>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td><strong>Respiratory Rate</strong></td>
+                            <td>{{ entry.roc_data.rr_roc|floatformat:2 }} br/hr</td>
+                            <td class="text-end">
+                              <span class="badge {% if entry.roc_data.rr_roc > 5 %}bg-danger{% elif entry.roc_data.rr_roc > 0 %}bg-warning{% else %}bg-success{% endif %}">
+                                {% if entry.roc_data.rr_roc > 5 %}Rising{% elif entry.roc_data.rr_roc > 0 %}Slight increase{% elif entry.roc_data.rr_roc < 0 %}Decreasing{% else %}Stable{% endif %}
+                              </span>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td><strong>SpO₂</strong></td>
+                            <td>{{ entry.roc_data.spo2_roc|floatformat:2 }}%/hr</td>
+                            <td class="text-end">
+                              <span class="badge {% if entry.roc_data.spo2_roc < -2 %}bg-danger{% elif entry.roc_data.spo2_roc < 0 %}bg-warning{% else %}bg-success{% endif %}">
+                                {% if entry.roc_data.spo2_roc < -2 %}Critical drop{% elif entry.roc_data.spo2_roc < 0 %}Declining{% elif entry.roc_data.spo2_roc > 0 %}Improving{% else %}Stable{% endif %}
+                              </span>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td><strong>Systolic BP</strong></td>
+                            <td>{{ entry.roc_data.bp_roc|floatformat:2 }} mmHg/hr</td>
+                            <td class="text-end">
+                              <span class="badge {% if entry.roc_data.bp_roc < -10 %}bg-danger{% elif entry.roc_data.bp_roc < 0 %}bg-warning{% else %}bg-success{% endif %}">
+                                {% if entry.roc_data.bp_roc < -10 %}Dropping fast{% elif entry.roc_data.bp_roc < 0 %}Declining{% elif entry.roc_data.bp_roc > 0 %}Rising{% else %}Stable{% endif %}
+                              </span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                {% endif %}
+
+                <!-- Alert Decision Logic -->
+                <div class="mb-3">
+                  <div style="background: #f8f9fa; padding: 12px; border-radius: 4px; margin-bottom: 10px;">
+                    <strong>Alert Decision Logic</strong>
+                  </div>
+                  <div class="small" style="background: #f8f9fa; padding: 12px; border-radius: 4px; border-left: 3px solid #0d6efd; line-height: 1.6;">
+                    {% for step in entry.prediction_reasoning.reasoning_steps %}
+                      <div>{{ step|safe }}</div>
+                    {% endfor %}
+                  </div>
+                </div>
+
+                <!-- Alert Decision Result -->
+                <div style="{% if entry.prediction_reasoning.alert_triggered %}background: #fef2f2; border-left: 4px solid #dc2626;{% else %}background: #f0fdf4; border-left: 4px solid #198754;{% endif %} padding: 12px; border-radius: 4px;">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div><strong>Alert Triggered:</strong></div>
+                      <div>
+                        {% if entry.prediction_reasoning.alert_triggered %}
+                          <span class="badge bg-danger">YES</span>
+                        {% else %}
+                          <span class="badge bg-success">NO</span>
+                        {% endif %}
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div><strong>Priority:</strong></div>
+                      <div>
+                        <span class="badge {% if entry.prediction_reasoning.alert_priority == 'CRITICAL' %}bg-danger{% elif entry.prediction_reasoning.alert_priority == 'HIGH' %}bg-warning{% else %}bg-success{% endif %}">
+                          {{ entry.prediction_reasoning.alert_priority }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>No vital signs recorded yet.</strong> Record the patient's first vital signs to see history here.
+      </div>
+    {% endif %}
+
+    <!-- Reference -->
+    <div class="row mt-4">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <h6 class="mb-0">NEWS2 Score Reference</h6>
+          </div>
+          <div class="card-body small">
+            <div class="row">
+              <div class="col-md-3">
+                <strong>Score 0-4</strong><br>
+                <span class="badge bg-success">Low Risk</span><br>
+                <small class="text-muted">Routine monitoring</small>
+              </div>
+              <div class="col-md-3">
+                <strong>Score 5-6</strong><br>
+                <span class="badge bg-warning">Medium Risk</span><br>
+                <small class="text-muted">Increased monitoring</small>
+              </div>
+              <div class="col-md-3">
+                <strong>Score 7-8</strong><br>
+                <span class="badge bg-warning">High Risk</span><br>
+                <small class="text-muted">Senior review</small>
+              </div>
+              <div class="col-md-3">
+                <strong>Score 9+</strong><br>
+                <span class="badge bg-danger">Critical</span><br>
+                <small class="text-muted">Immediate action</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
