@@ -8,6 +8,15 @@ from .api_views import (
     RiskTimelineView,
     PatientRiskSummaryView,
 )
+from .dashboard_views import (
+    risk_dashboard,
+    patient_risk_detail,
+    alert_history,
+    critical_patients_list,
+    api_patient_risk_realtime,
+    api_alert_stream,
+    api_dashboard_summary,
+)
 
 # DRF Router for API endpoints
 router = DefaultRouter()
@@ -25,6 +34,17 @@ urlpatterns = [
     path('<int:patient_pk>/', views.patient_vitals_list, name='patient_vitals_list'),
     path('<int:patient_pk>/history/', views.patient_vital_history, name='patient_vital_history'),  # Detailed history with predictions
 
+    # Dashboard views (Phase 6)
+    path('dashboard/', risk_dashboard, name='risk_dashboard'),
+    path('patient/<int:patient_id>/risk/', patient_risk_detail, name='patient_risk_detail'),
+    path('alerts/', alert_history, name='alert_history'),
+    path('critical/', critical_patients_list, name='critical_patients'),
+
     # REST API endpoints (Phase 5)
     path('api/v1/', include(router.urls)),
+
+    # Real-time API endpoints (Phase 6)
+    path('api/patient/<int:patient_id>/risk-realtime/', api_patient_risk_realtime, name='api_patient_risk_realtime'),
+    path('api/alert-stream/', api_alert_stream, name='api_alert_stream'),
+    path('api/dashboard-summary/', api_dashboard_summary, name='api_dashboard_summary'),
 ]
