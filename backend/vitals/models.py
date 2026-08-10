@@ -323,3 +323,100 @@ def auto_detect_deterioration(sender, instance, created, **kwargs):
 
     except Exception as e:
         print(f"[ERROR] Deterioration detection failed: {e}")
+
+
+# ============================================================================
+# RISK ASSESSMENT MODEL - FOR RESEARCH TRACEABILITY
+# ============================================================================
+# Stores complete decision trace for every risk assessment
+# Enables "why this result?" explanations and research reproducibility
+
+class RiskAssessment(models.Model):
+    """
+    Complete risk assessment record for traceability and explainability.
+
+    This model stores:
+    - All vital signs used in the assessment
+    - NEWS2 component scores
+    - Trend analysis results
+    - Multi-parameter analysis
+    - Combined risk calculation
+    - Decision logic and reasoning
+    - Clinical interpretation
+
+    Enables reconstruction of "what did we know at timestamp T?"
+    """
+
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='risk_assessments')
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    assessed_at = models.DateTimeField()  # When assessment was made (not when stored)
+
+    # Vital signs observations used in this assessment
+    vital_signs = models.ManyToManyField(VitalSigns, related_name='risk_assessments')
+    observation_count = models.IntegerField(default=1, help_text='Number of vital observations used')
+
+    # ========================
+    # NEWS2 COMPONENT SCORES
+    # ========================
+    news2_total = models.IntegerField()
+    news2_hr_score = models.IntegerField()
+    news2_rr_score = models.IntegerField()
+    news2_spo2_score = models.IntegerField()
+    news2_bp_score = models.IntegerField()
+    news2_temp_score = models.IntegerField()
+
+    # ========================
+    # TREND ANALYSIS (3 WINDOWS)
+    # ========================
+    trend_window_4 = models.JSONField(default=dict, blank=True, help_text='Last 4 observations analysis')
+    trend_window_8 = models.JSONField(default=dict, blank=True, help_text='Last 8 observations analysis')
+    trend_window_12 = models.JSONField(default=dict, blank=True, help_text='Last 12 observations analysis')
+    trend_score = models.IntegerField(default=0, help_text='Score from trend analysis (0+)')
+
+    # ========================
+    # MULTI-PARAMETER ANALYSIS
+    # ========================
+    multi_param_score = models.IntegerField(default=0, help_text='Score from multiple vitals worsening together')
+    multi_param_details = models.JSONField(default=dict, blank=True, help_text='Which parameters moving together')
+
+    # ========================
+    # COMBINED RISK ASSESSMENT
+    # ========================
+    combined_risk = models.IntegerField(help_text='NEWS2 + trend + multi-parameter combined')
+
+    RISK_LEVEL_CHOICES = [
+        ('low', 'Low Risk'),
+        ('medium', 'Medium Risk'),
+        ('high', 'High Risk'),
+        ('critical', 'Critical'),
+    ]
+    risk_level = models.CharField(max_length=20, choices=RISK_LEVEL_CHOICES)
+
+    # ========================
+    # DECISION REASONING
+    # ========================
+    explanation_text = models.TextField(blank=True, help_text='Human-readable explanation of why this risk level')
+    decision_logic = models.JSONField(default=dict, blank=True, help_text='Step-by-step reasoning in structured format')
+
+    # ========================
+    # SYSTEM INFORMATION
+    # ========================
+    algorithm_version = models.CharField(max_length=20, default='1.0.0')
+    configuration_version = models.CharField(max_length=20, default='1.0.0')
+
+    class Meta:
+        ordering = ['-assessed_at']
+        indexes = [
+            models.Index(fields=['patient', '-assessed_at']),
+        ]
+        verbose_name_plural = 'Risk Assessments'
+
+    def __str__(self):
+        return f'Risk Assessment for {self.patient} at {self.assessed_at.strftime("%d/%m/%Y %H:%M")}'
+
+    @property
+    def risk_label(self):
+        """Return human-readable risk label"""
+        return dict(self.RISK_LEVEL_CHOICES).get(self.risk_level, 'Unknown')
