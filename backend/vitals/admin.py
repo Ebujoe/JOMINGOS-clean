@@ -26,7 +26,6 @@ class VitalSignsAdmin(admin.ModelAdmin):
     list_filter = (
         'recorded_at',
         'patient',
-        ('news2_total', admin.FieldListFilter),
     )
 
     search_fields = ('patient__first_name', 'patient__last_name', 'patient__id')
