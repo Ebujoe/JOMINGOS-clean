@@ -59,6 +59,7 @@ class DeteriorationAlert(models.Model):
         ('sustained_elevation', 'Sustained Elevation (2+ readings high)'),
         ('combined_risk', 'Combined Risk Factors'),
         ('ml_prediction', 'ML Model Prediction'),
+        ('research_deterioration_detection', 'Research Deterioration Detection (Phase 4)'),
     ]
 
     PRIORITY_CHOICES = [
@@ -76,7 +77,7 @@ class DeteriorationAlert(models.Model):
     ]
 
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='deterioration_alerts')
-    alert_type = models.CharField(max_length=30, choices=ALERT_TYPE_CHOICES)
+    alert_type = models.CharField(max_length=50, choices=ALERT_TYPE_CHOICES)
     priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='medium')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
 
@@ -93,6 +94,7 @@ class DeteriorationAlert(models.Model):
     # Related analysis
     related_vital = models.ForeignKey(VitalSigns, on_delete=models.SET_NULL, null=True, blank=True, related_name='deterioration_alerts')
     related_trend = models.ForeignKey(TrendAnalysis, on_delete=models.SET_NULL, null=True, blank=True)
+    risk_assessment = models.ForeignKey('vitals.RiskAssessment', on_delete=models.SET_NULL, null=True, blank=True, related_name='alerts')
 
     # Alert fatigue suppression
     is_suppressed = models.BooleanField(default=False)

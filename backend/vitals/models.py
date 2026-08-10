@@ -191,138 +191,107 @@ from django.utils import timezone
 @receiver(post_save, sender=VitalSigns)
 def auto_detect_deterioration(sender, instance, created, **kwargs):
     """
-    RESEARCH-BASED PREDICTIVE DETERIORATION DETECTION
+    PHASE 4: INTEGRATION - RESEARCH-BASED DETERIORATION DETECTION
 
-    This implements a PREDICTIVE approach:
-    1. Track vitals OVER TIME for each patient
-    2. Calculate TRENDS (rate of change)
-    3. Alert BEFORE patient becomes critical (preventive)
-    4. Prevent urgent situations through early warning
-
-    Algorithm:
-    - Get last 5 vitals for patient (time series)
-    - Calculate rate of change for each vital
-    - Check if trending toward critical (e.g., SpO2 dropping, HR rising)
-    - Alert on TRENDS, not just absolute values
+    Uses Phase 3 RiskAssessmentEngine to:
+    1. Combine NEWS2 scoring (Phase 1)
+    2. Analyze vital trends (Phase 2)
+    3. Detect multi-parameter deterioration (Phase 3)
+    4. Create RiskAssessment records for traceability
+    5. Generate alerts based on combined risk
     """
 
     if not created:
         return
 
     try:
-        from deterioration_alerts.inference_service import get_detector
+        from vitals.utils import RiskAssessmentEngine
         from deterioration_alerts.models import DeteriorationAlert
 
-        # ========== STEP 1: GET HISTORICAL VITALS (TREND ANALYSIS) ==========
-        previous_vitals = VitalSigns.objects.filter(
-            patient=instance.patient
-        ).exclude(id=instance.id).order_by('-recorded_at')[:5]
+        # ========== STEP 1: ASSESS PATIENT RISK ==========
+        engine = RiskAssessmentEngine()
+        assessment = engine.assess_patient(instance.patient)
 
-        # Calculate RATE OF CHANGE (trends)
-        heart_rate_roc = 0
-        resp_rate_roc = 0
-        spo2_roc = 0
-        systolic_bp_roc = 0
-        trend_score = 0
-
-        if previous_vitals.count() > 0:
-            prev_vital = previous_vitals[0]
-            time_diff = (instance.recorded_at - prev_vital.recorded_at).total_seconds() / 3600  # hours
-
-            if time_diff > 0:
-                # Calculate rate of change per hour
-                if instance.heart_rate and prev_vital.heart_rate:
-                    heart_rate_roc = (float(instance.heart_rate) - float(prev_vital.heart_rate)) / time_diff
-                    if heart_rate_roc > 10:  # HR rising fast = risk
-                        trend_score += 2
-
-                if instance.respiratory_rate and prev_vital.respiratory_rate:
-                    resp_rate_roc = (float(instance.respiratory_rate) - float(prev_vital.respiratory_rate)) / time_diff
-                    if resp_rate_roc > 5:  # RR rising = risk
-                        trend_score += 2
-
-                if instance.oxygen_saturation and prev_vital.oxygen_saturation:
-                    spo2_roc = (float(instance.oxygen_saturation) - float(prev_vital.oxygen_saturation)) / time_diff
-                    if spo2_roc < -2:  # SpO2 dropping = HIGH RISK
-                        trend_score += 3
-
-                if instance.bp_systolic and prev_vital.bp_systolic:
-                    systolic_bp_roc = (float(instance.bp_systolic) - float(prev_vital.bp_systolic)) / time_diff
-                    if systolic_bp_roc < -10:  # BP dropping = risk
-                        trend_score += 2
-
-                if instance.temperature and prev_vital.temperature:
-                    temp_roc = (float(instance.temperature) - float(prev_vital.temperature)) / time_diff
-                    if abs(temp_roc) > 0.5:  # Temp changing rapidly
-                        trend_score += 1
-
-        # ========== STEP 2: PREPARE DATA FOR PREDICTION ==========
-        vital_data = {
-            'news2_total': instance.news2_total,
-            'rr_score': instance.news2_respiratory_score,
-            'spo2_score': instance.news2_spo2_score,
-            'sbp_score': instance.news2_bp_score,
-            'hr_score': instance.news2_hr_score,
-            'temp_score': instance.news2_temp_score,
-            'o2_score': 0,
-            'heart_rate_roc': heart_rate_roc,  # NOW CALCULATED!
-            'resp_rate_roc': resp_rate_roc,  # NOW CALCULATED!
-            'spo2_roc': spo2_roc,  # NOW CALCULATED!
-            'systolic_bp_roc': systolic_bp_roc,  # NOW CALCULATED!
-            'trend_score': trend_score,  # NOW CALCULATED!
-            'combined_risk_score': instance.news2_total + trend_score,  # Combines absolute + trend
-        }
-
-        # ========== STEP 3: MAKE PREDICTION ==========
-        detector = get_detector()
-        prediction = detector.predict(vital_data)
-
-        # ========== STEP 4: DETERMINE ALERT TRIGGER ==========
-        # PREDICTIVE: Alert if:
-        # 1. Current status is CRITICAL (NEWS2 >= 7), OR
-        # 2. TRENDING towards critical (adverse trends detected)
-        should_alert = False
-        alert_reason = ""
-
-        if prediction['is_critical'] or prediction['alert_level'] == 'RED':
-            should_alert = True
-            alert_reason = f"CRITICAL: {prediction['alert_level']} ({prediction['confidence']:.1f}%) - NEWS2 score {instance.news2_total}"
-
-        elif prediction['alert_level'] == 'AMBER' and trend_score > 0:
-            should_alert = True
-            alert_reason = f"HIGH RISK with DETERIORATING TREND: {prediction['alert_level']} + Trend Score {trend_score}"
-
-        elif trend_score >= 5:
-            should_alert = True
-            alert_reason = f"PREDICTIVE ALERT: Patient trending toward critical (Trend Score: {trend_score})"
-
-        # ========== STEP 5: CREATE ALERT IF NEEDED ==========
-        if should_alert:
-            DeteriorationAlert.objects.create(
+        # ========== STEP 2: CREATE RISKASSESSMENT RECORD ==========
+        if assessment['data_available']:
+            risk_record = RiskAssessment.objects.create(
                 patient=instance.patient,
-                alert_type='ml_prediction',
-                priority='critical' if prediction['alert_level'] == 'RED' else 'high',
-                status='active',
-                trigger_value=prediction['probability'],
-                trigger_reason=alert_reason,
-                related_vital=instance,
+                assessed_at=timezone.now(),
+                # NEWS2 components
+                news2_total=assessment['news2']['score'],
+                news2_hr_score=assessment['news2']['hr_score'],
+                news2_rr_score=assessment['news2']['rr_score'],
+                news2_spo2_score=assessment['news2']['spo2_score'],
+                news2_bp_score=assessment['news2']['bp_score'],
+                news2_temp_score=assessment['news2']['temp_score'],
+                # Trend analysis
+                trend_score=assessment['trend']['score'],
+                # Multi-parameter analysis
+                multi_param_score=assessment['multi_parameter']['multi_param_score'],
+                multi_param_details={
+                    'pattern': assessment['multi_parameter']['pattern'],
+                    'worsening_count': assessment['multi_parameter']['worsening_count'],
+                    'deteriorating_together': assessment['multi_parameter']['deteriorating_together'],
+                    'contributing_vitals': assessment['multi_parameter']['contributing_vitals'],
+                },
+                # Combined risk
+                combined_risk=round(assessment['combined_risk']),
+                risk_level=assessment['risk_level'],
+                explanation_text=assessment['explanation'],
+                decision_logic={
+                    'news2_score': assessment['news2']['score'],
+                    'trend_score': assessment['trend']['score'],
+                    'multi_param_pattern': assessment['multi_parameter']['pattern'],
+                    'combined_formula': f"NEWS2({assessment['news2']['score']}) + Trend*1.2({assessment['trend']['score']*1.2:.1f}) + MultiParam({assessment['multi_parameter']['multi_param_score']}) = {assessment['combined_risk']:.1f}",
+                    'algorithm_version': '3.0-phase-4',
+                },
+            )
+            risk_record.vital_signs.add(instance)
+
+            # ========== STEP 3: DETERMINE IF ALERT NEEDED ==========
+            should_alert, alert_reason = engine.should_create_alert(
+                instance.patient,
+                assessment['combined_risk']
             )
 
-            print(f"\n{'='*70}")
-            print(f"[RESEARCH-BASED ALERT] {instance.patient.get_full_name()}")
-            print(f"{'='*70}")
-            print(f"Alert Level: {prediction['alert_level']}")
-            print(f"Current NEWS2: {instance.news2_total}")
-            print(f"Trend Score: {trend_score}")
-            print(f"Heart Rate Change: {heart_rate_roc:.1f} bpm/hour")
-            print(f"SpO2 Change: {spo2_roc:.1f}%/hour")
-            print(f"Respiratory Rate Change: {resp_rate_roc:.1f} br/hour")
-            print(f"Systolic BP Change: {systolic_bp_roc:.1f} mmHg/hour")
-            print(f"Reason: {alert_reason}")
-            print(f"{'='*70}\n")
+            # ========== STEP 4: CREATE ALERT IF NEEDED ==========
+            if should_alert:
+                priority_map = {
+                    'critical': 'critical',
+                    'high': 'high',
+                    'medium': 'medium',
+                    'low': 'low',
+                }
+                priority = priority_map.get(assessment['risk_level'], 'medium')
+
+                DeteriorationAlert.objects.create(
+                    patient=instance.patient,
+                    alert_type='research_deterioration_detection',
+                    priority=priority,
+                    status='active',
+                    trigger_value=float(assessment['combined_risk']),
+                    trigger_reason=alert_reason,
+                    related_vital=instance,
+                    risk_assessment=risk_record,
+                )
+
+                # ========== STEP 5: LOG ALERT ==========
+                print(f"\n{'='*70}")
+                print(f"[DETERIORATION ALERT] {instance.patient.get_full_name()}")
+                print(f"{'='*70}")
+                print(f"Risk Level: {assessment['risk_level'].upper()}")
+                print(f"Combined Risk: {assessment['combined_risk']:.1f}")
+                print(f"  • NEWS2 Score: {assessment['news2']['score']}")
+                print(f"  • Trend Score: {assessment['trend']['score']}")
+                print(f"  • Multi-Parameter: {assessment['multi_parameter']['pattern']}")
+                print(f"Explanation: {assessment['explanation']}")
+                print(f"Recommendation: {assessment['recommendation']}")
+                print(f"{'='*70}\n")
 
     except Exception as e:
         print(f"[ERROR] Deterioration detection failed: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 # ============================================================================
@@ -374,11 +343,13 @@ class RiskAssessment(models.Model):
     trend_window_8 = models.JSONField(default=dict, blank=True, help_text='Last 8 observations analysis')
     trend_window_12 = models.JSONField(default=dict, blank=True, help_text='Last 12 observations analysis')
     trend_score = models.IntegerField(default=0, help_text='Score from trend analysis (0+)')
+    trend_level = models.CharField(max_length=20, default='low', choices=[('low', 'Low'), ('medium', 'Medium'), ('high', 'High')])
 
     # ========================
     # MULTI-PARAMETER ANALYSIS
     # ========================
     multi_param_score = models.IntegerField(default=0, help_text='Score from multiple vitals worsening together')
+    multi_param_pattern = models.CharField(max_length=50, default='stable', help_text='Pattern of multi-parameter worsening')
     multi_param_details = models.JSONField(default=dict, blank=True, help_text='Which parameters moving together')
 
     # ========================
@@ -398,6 +369,7 @@ class RiskAssessment(models.Model):
     # DECISION REASONING
     # ========================
     explanation_text = models.TextField(blank=True, help_text='Human-readable explanation of why this risk level')
+    recommendation = models.TextField(blank=True, help_text='Clinical recommendation based on risk level')
     decision_logic = models.JSONField(default=dict, blank=True, help_text='Step-by-step reasoning in structured format')
 
     # ========================
