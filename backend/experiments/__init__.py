@@ -26,6 +26,7 @@ Usage:
 from .dataset_loader import DatasetLoader, DatasetAnalyzer
 from .experimental_split import ExperimentalSplit, StratifiedSplitter
 from .metrics import MetricsCalculator, PerformanceReport
+from .evaluation_pipeline import EvaluationPipeline, ComparisonAnalysis
 
 __all__ = [
     'DatasetLoader',
@@ -34,4 +35,6 @@ __all__ = [
     'StratifiedSplitter',
     'MetricsCalculator',
     'PerformanceReport',
+    'EvaluationPipeline',
+    'ComparisonAnalysis',
 ]
