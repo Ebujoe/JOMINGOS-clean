@@ -67,8 +67,8 @@ class RealTimeDataRecorder:
                 heart_rate=vitals.get('heart_rate'),
                 respiratory_rate=vitals.get('respiratory_rate'),
                 oxygen_saturation=vitals.get('oxygen_saturation'),
-                systolic_bp=vitals.get('systolic_bp'),
-                diastolic_bp=vitals.get('diastolic_bp'),
+                bp_systolic=vitals.get('systolic_bp'),
+                bp_diastolic=vitals.get('diastolic_bp'),
                 temperature=vitals.get('temperature'),
             )
 
