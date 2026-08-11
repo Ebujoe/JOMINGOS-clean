@@ -99,28 +99,28 @@ def patient_vital_history(request, patient_pk):
                     roc_data['trend_reasons'].append(f"HR rising {roc_data['hr_roc']:.2f} bpm/hour")
 
             if vital.respiratory_rate and prev_vital.respiratory_rate:
-                roc_data['rr_roc'] = (vital.respiratory_rate - prev_vital.respiratory_rate) / time_diff_hours
+                roc_data['rr_roc'] = (float(vital.respiratory_rate) - float(prev_vital.respiratory_rate)) / time_diff_hours
                 if roc_data['rr_roc'] > 5:
                     roc_data['trend_score'] += 2
                     roc_data['trend_reasons'].append(f"RR rising {roc_data['rr_roc']:.2f} br/hour")
 
             if vital.oxygen_saturation and prev_vital.oxygen_saturation:
-                roc_data['spo2_roc'] = (vital.oxygen_saturation - prev_vital.oxygen_saturation) / time_diff_hours
+                roc_data['spo2_roc'] = (float(vital.oxygen_saturation) - float(prev_vital.oxygen_saturation)) / time_diff_hours
                 if roc_data['spo2_roc'] < -2:
                     roc_data['trend_score'] += 3
-                    roc_data['trend_reasons'].append(f"🚨 SpO2 DROPPING {roc_data['spo2_roc']:.2f}%/hour (CRITICAL)")
+                    roc_data['trend_reasons'].append(f"SpO2 DROPPING {roc_data['spo2_roc']:.2f}%/hour (CRITICAL)")
 
             if vital.bp_systolic and prev_vital.bp_systolic:
-                roc_data['bp_roc'] = (vital.bp_systolic - prev_vital.bp_systolic) / time_diff_hours
+                roc_data['bp_roc'] = (float(vital.bp_systolic) - float(prev_vital.bp_systolic)) / time_diff_hours
                 if roc_data['bp_roc'] < -10:
                     roc_data['trend_score'] += 2
                     roc_data['trend_reasons'].append(f"BP dropping {roc_data['bp_roc']:.2f} mmHg/hour")
 
             if vital.temperature and prev_vital.temperature:
-                roc_data['temp_roc'] = (vital.temperature - prev_vital.temperature) / time_diff_hours
+                roc_data['temp_roc'] = (float(vital.temperature) - float(prev_vital.temperature)) / time_diff_hours
                 if abs(roc_data['temp_roc']) > 0.5:
                     roc_data['trend_score'] += 2
-                    roc_data['trend_reasons'].append(f"Temp abnormal trend {roc_data['temp_roc']:.2f}°C/hour")
+                    roc_data['trend_reasons'].append(f"Temp abnormal trend {roc_data['temp_roc']:.2f}C/hour")
 
         # Prediction reasoning
         prediction_reasoning = {
