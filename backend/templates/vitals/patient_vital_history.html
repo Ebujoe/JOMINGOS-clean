@@ -57,7 +57,7 @@
                 <div class="row align-items-center">
                   <div class="col-md-8">
                     <div><strong>Recording #{{ entry.sequence }}</strong></div>
-                    <small class="text-muted">{{ entry.vital.recorded_at|date:"d/m/Y H:i" }} • {{ entry.vital.recorded_by.get_full_name|default:entry.vital.recorded_by.username }}</small>
+                    <small class="text-muted">{{ entry.vital.recorded_at|date:"d/m/Y H:i" }} • {% if entry.vital.recorded_by %}{{ entry.vital.recorded_by.get_full_name|default:entry.vital.recorded_by.username }}{% else %}System{% endif %}</small>
                   </div>
                   <div class="col-md-4 text-end">
                     <span class="badge {% if entry.prediction_reasoning.news2_level == 'high' %}bg-danger{% elif entry.prediction_reasoning.news2_level == 'medium' %}bg-warning{% else %}bg-success{% endif %}" style="font-size: 13px; padding: 5px 10px;">
