@@ -143,7 +143,7 @@
                         {% endif %}
                       </td>
                       <td>
-                        <small>{{ vital.recorded_by.get_full_name|default:vital.recorded_by.username }}</small>
+                        <small>{% if vital.recorded_by %}{{ vital.recorded_by.get_full_name|default:vital.recorded_by.username }}{% else %}System{% endif %}</small>
                       </td>
                       <td>
                         <small class="text-muted">{{ vital.recorded_at|date:"d/m/Y H:i" }}</small>
