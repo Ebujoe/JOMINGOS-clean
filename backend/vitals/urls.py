@@ -17,6 +17,7 @@ from .dashboard_views import (
     api_alert_stream,
     api_dashboard_summary,
 )
+from .real_time_views import RealTimeRecordingViewSet, FlowVisualizationView
 
 # DRF Router for API endpoints
 router = DefaultRouter()
@@ -24,6 +25,7 @@ router.register(r'risk-assessments', RiskAssessmentViewSet, basename='risk-asses
 router.register(r'vitals', VitalSignsViewSet, basename='vital-signs')
 router.register(r'risk-timeline', RiskTimelineView, basename='risk-timeline')
 router.register(r'patient-risk-summary', PatientRiskSummaryView, basename='patient-risk-summary')
+router.register(r'real-time', RealTimeRecordingViewSet, basename='real-time-recording')
 
 urlpatterns = [
     # Traditional views
@@ -47,4 +49,7 @@ urlpatterns = [
     path('api/patient/<int:patient_id>/risk-realtime/', api_patient_risk_realtime, name='api_patient_risk_realtime'),
     path('api/alert-stream/', api_alert_stream, name='api_alert_stream'),
     path('api/dashboard-summary/', api_dashboard_summary, name='api_dashboard_summary'),
+
+    # Real-time recording endpoints (Phase 9)
+    path('realtime-flow/', FlowVisualizationView.as_view(), name='realtime_flow'),
 ]
