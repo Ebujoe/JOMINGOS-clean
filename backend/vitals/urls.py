@@ -23,6 +23,11 @@ from .api_predictive import (
     get_cohort_predictions,
     get_prediction_details,
 )
+from .predictive_views import (
+    predictive_dashboard,
+    patient_predictive_detail,
+    api_patient_predictive,
+)
 
 # DRF Router for API endpoints
 router = DefaultRouter()
@@ -62,4 +67,9 @@ urlpatterns = [
     path('api/predict/patient/<int:patient_pk>/', get_patient_prediction, name='api_patient_prediction'),
     path('api/predict/cohort/', get_cohort_predictions, name='api_cohort_predictions'),
     path('api/predict/details/<int:prediction_id>/', get_prediction_details, name='api_prediction_details'),
+
+    # Predictive Forecasting UI (Phase 10)
+    path('predictive/', predictive_dashboard, name='predictive_dashboard'),
+    path('<int:patient_pk>/predictive/', patient_predictive_detail, name='patient_predictive_detail'),
+    path('api/patient/<int:patient_pk>/predictive/', api_patient_predictive, name='api_patient_predictive'),
 ]

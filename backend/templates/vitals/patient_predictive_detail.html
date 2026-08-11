@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% block title %}Predictive Forecast - {{ patient.get_full_name }}{% endblock %}
+{% block nav_vitals %}active{% endblock %}
+
+{% block content %}
+<div class="app-content-header">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-sm-8">
+        <h3 class="mb-0">
+          <i class="bi bi-crystal-ball me-2"></i>Predictive Forecast
+        </h3>
+        <small class="text-muted">{{ patient.get_full_name }} — 24-72 hour deterioration forecast</small>
+      </div>
+      <div class="col-sm-4 text-end">
+        <a href="{% url 'patient_vital_history' patient.pk %}" class="btn btn-sm btn-secondary">
+          <i class="bi bi-arrow-left me-1"></i>Back to History
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app-content">
+  <div class="container-fluid">
+
+    {% if latest_prediction %}
+      <!-- Risk Alert Banner -->
+      <div class="row mb-3">
+        <div class="col-md-12">
+          <div class="alert {% if latest_prediction.urgency_level == 'immediate' %}alert-danger{% elif latest_prediction.urgency_level == 'urgent' %}alert-warning{% elif latest_prediction.urgency_level == 'elevated' %}alert-info{% else %}alert-success{% endif %}" role="alert">
+            <div class="row align-items-center">
+              <div class="col-md-8">
+                <h5 class="mb-1">
+                  {% if latest_prediction.urgency_level == 'immediate' %}
+                    <i class="bi bi-exclamation-circle-fill me-2"></i>IMMEDIATE ACTION REQUIRED
+                  {% elif latest_prediction.urgency_level == 'urgent' %}
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>URGENT: HIGH RISK
+                  {% elif latest_prediction.urgency_level == 'elevated' %}
+                    <i class="bi bi-info-circle-fill me-2"></i>ELEVATED RISK
+                  {% else %}
+                    <i class="bi bi-check-circle-fill me-2"></i>STABLE
+                  {% endif %}
+                </h5>
+                <p class="mb-0">
+                  {% if latest_prediction.hours_to_critical %}
+                    Patient projected to reach CRITICAL state in approximately <strong>{{ latest_prediction.hours_to_critical|floatformat:1 }} hours</strong>.
+                    {% if latest_prediction.critical_vital_first %}
+                      First critical vital: <strong>{{ latest_prediction.critical_vital_first|replace:"_":" "|title }}</strong>
+                    {% endif %}
+                  {% else %}
+                    No critical vitals projected in next 72 hours. Continue routine monitoring.
+                  {% endif %}
+                </p>
+              </div>
+              <div class="col-md-4 text-end">
+                <span class="badge {% if latest_prediction.urgency_level == 'immediate' %}bg-danger{% elif latest_prediction.urgency_level == 'urgent' %}bg-warning text-dark{% elif latest_prediction.urgency_level == 'elevated' %}bg-info{% else %}bg-success{% endif %}" style="font-size: 14px; padding: 10px 15px;">
+                  {{ latest_prediction.trajectory_level|title|replace:"_":" " }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current vs Forecast Comparison -->
+      <div class="row mb-3">
+        <div class="col-md-12">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="mb-0">Current vs Forecasted Vitals</h5>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h6 class="mb-3">Current (Now)</h6>
+                    <div class="row small">
+                      <div class="col-6">
+                        <div><strong>Heart Rate</strong></div>
+                        <div style="font-size: 20px; color: #0d6efd;">{{ latest_prediction.current_heart_rate|default:"—"|floatformat:0 }}</div>
+                        <div class="text-muted">bpm</div>
+                      </div>
+                      <div class="col-6">
+                        <div><strong>SpO2</strong></div>
+                        <div style="font-size: 20px; color: #0d6efd;">{{ latest_prediction.current_oxygen_saturation|default:"—"|floatformat:1 }}</div>
+                        <div class="text-muted">%</div>
+                      </div>
+                    </div>
+                    <div class="row small mt-3">
+                      <div class="col-6">
+                        <div><strong>Respiratory</strong></div>
+                        <div style="font-size: 20px; color: #0d6efd;">{{ latest_prediction.current_respiratory_rate|default:"—"|floatformat:0 }}</div>
+                        <div class="text-muted">br/min</div>
+                      </div>
+                      <div class="col-6">
+                        <div><strong>Temp</strong></div>
+                        <div style="font-size: 20px; color: #0d6efd;">{{ latest_prediction.current_temperature|default:"—"|floatformat:1 }}</div>
+                        <div class="text-muted">C</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h6 class="mb-3">Forecast (24h ahead)</h6>
+                    <div class="row small">
+                      <div class="col-6">
+                        <div><strong>Heart Rate</strong></div>
+                        <div style="font-size: 20px; {% if latest_prediction.forecast_24h_heart_rate > latest_prediction.current_heart_rate %}color: #fd7e14;{% else %}color: #198754;{% endif %}">
+                          {{ latest_prediction.forecast_24h_heart_rate|default:"—"|floatformat:0 }}
+                        </div>
+                        <div class="text-muted">bpm</div>
+                      </div>
+                      <div class="col-6">
+                        <div><strong>SpO2</strong></div>
+                        <div style="font-size: 20px; {% if latest_prediction.forecast_24h_oxygen_saturation < latest_prediction.current_oxygen_saturation %}color: #dc3545;{% else %}color: #198754;{% endif %}">
+                          {{ latest_prediction.forecast_24h_oxygen_saturation|default:"—"|floatformat:1 }}
+                        </div>
+                        <div class="text-muted">%</div>
+                      </div>
+                    </div>
+                    <div class="row small mt-3">
+                      <div class="col-6">
+                        <div><strong>Respiratory</strong></div>
+                        <div style="font-size: 20px; {% if latest_prediction.forecast_24h_respiratory_rate > latest_prediction.current_respiratory_rate %}color: #fd7e14;{% else %}color: #198754;{% endif %}">
+                          {{ latest_prediction.forecast_24h_respiratory_rate|default:"—"|floatformat:0 }}
+                        </div>
+                        <div class="text-muted">br/min</div>
+                      </div>
+                      <div class="col-6">
+                        <div><strong>Temp</strong></div>
+                        <div style="font-size: 20px; {% if latest_prediction.forecast_24h_temperature > latest_prediction.current_temperature %}color: #fd7e14;{% else %}color: #198754;{% endif %}">
+                          {{ latest_prediction.forecast_24h_temperature|default:"—"|floatformat:1 }}
+                        </div>
+                        <div class="text-muted">C</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vitals at Risk -->
+      {% if latest_prediction.vitals_at_risk %}
+        <div class="row mb-3">
+          <div class="col-md-12">
+            <div class="card" style="border-left: 4px solid #dc3545;">
+              <div class="card-header">
+                <h5 class="mb-0">Vitals at Risk</h5>
+              </div>
+              <div class="card-body">
+                <p class="mb-2"><strong>The following vitals are projected to approach or exceed critical thresholds:</strong></p>
+                <div>
+                  {% for vital in latest_prediction.vitals_at_risk %}
+                    <span class="badge bg-warning text-dark me-2 mb-2">{{ vital|replace:"_":" "|title }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Recommendations -->
+      <div class="row mb-3">
+        <div class="col-md-12">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="mb-0">Recommended Actions</h5>
+            </div>
+            <div class="card-body">
+              {% if latest_prediction.recommended_actions %}
+                <ol>
+                  {% for action in latest_prediction.recommended_actions %}
+                    <li class="mb-2">{{ action }}</li>
+                  {% endfor %}
+                </ol>
+              {% else %}
+                <p class="text-muted">No specific actions recommended at this time. Continue routine monitoring.</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Forecast Quality -->
+      <div class="row mb-3">
+        <div class="col-md-12">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="mb-0">Forecast Quality</h5>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <div>
+                    <strong>Confidence Level:</strong>
+                    <div class="progress mt-2" style="height: 25px;">
+                      <div class="progress-bar {% if latest_prediction.forecast_confidence > 0.8 %}bg-success{% elif latest_prediction.forecast_confidence > 0.6 %}bg-warning{% else %}bg-info{% endif %}"
+                           role="progressbar"
+                           style="width: {{ latest_prediction.forecast_confidence|floatformat:0|add:'%' }}"
+                           aria-valuenow="{{ latest_prediction.forecast_confidence|floatformat:0 }}"
+                           aria-valuemin="0"
+                           aria-valuemax="100">
+                        {{ latest_prediction.forecast_confidence|floatformat:0 }}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div>
+                    <strong>Historical Readings Used:</strong>
+                    <div style="font-size: 24px; color: #0d6efd; font-weight: bold;">{{ latest_prediction.historical_readings_used }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prediction History -->
+      {% if prediction_history %}
+        <div class="row">
+          <div class="col-md-12">
+            <div class="card">
+              <div class="card-header">
+                <h5 class="mb-0">Prediction History (Last 7 Days)</h5>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Predicted At</th>
+                        <th>Trajectory</th>
+                        <th>Hours to Critical</th>
+                        <th>Urgency</th>
+                        <th>Confidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for pred in prediction_history %}
+                        <tr>
+                          <td><small>{{ pred.prediction_timestamp|date:"d/m H:i" }}</small></td>
+                          <td>
+                            <span class="badge {% if pred.trajectory_level == 'critical_within_24h' %}bg-danger{% elif pred.trajectory_level == 'rapid_deterioration' %}bg-warning text-dark{% else %}bg-info{% endif %}">
+                              {{ pred.trajectory_level|title|replace:"_":" " }}
+                            </span>
+                          </td>
+                          <td>
+                            {% if pred.hours_to_critical %}
+                              <small><strong>{{ pred.hours_to_critical|floatformat:1 }}h</strong></small>
+                            {% else %}
+                              <small class="text-muted">—</small>
+                            {% endif %}
+                          </td>
+                          <td>
+                            <span class="badge {% if pred.urgency_level == 'immediate' %}bg-danger{% elif pred.urgency_level == 'urgent' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                              {{ pred.urgency_level|title }}
+                            </span>
+                          </td>
+                          <td><small>{{ pred.forecast_confidence|floatformat:0 }}%</small></td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+    {% else %}
+
+      <!-- No Prediction Available -->
+      <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>No predictive forecast available.</strong>
+        {% if latest_vital %}
+          Need at least 3 vital sign recordings to generate forecasts. Currently have {{ vital_count }} recording(s).
+        {% else %}
+          Record vital signs for this patient to generate forecasts.
+        {% endif %}
+      </div>
+
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}
