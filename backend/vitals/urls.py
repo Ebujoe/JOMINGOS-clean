@@ -18,6 +18,11 @@ from .dashboard_views import (
     api_dashboard_summary,
 )
 from .real_time_views import RealTimeRecordingViewSet, FlowVisualizationView
+from .api_predictive import (
+    get_patient_prediction,
+    get_cohort_predictions,
+    get_prediction_details,
+)
 
 # DRF Router for API endpoints
 router = DefaultRouter()
@@ -52,4 +57,9 @@ urlpatterns = [
 
     # Real-time recording endpoints (Phase 9)
     path('realtime-flow/', FlowVisualizationView.as_view(), name='realtime_flow'),
+
+    # Predictive Forecasting endpoints (Phase 10)
+    path('api/predict/patient/<int:patient_pk>/', get_patient_prediction, name='api_patient_prediction'),
+    path('api/predict/cohort/', get_cohort_predictions, name='api_cohort_predictions'),
+    path('api/predict/details/<int:prediction_id>/', get_prediction_details, name='api_prediction_details'),
 ]

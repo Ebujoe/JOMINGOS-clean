@@ -392,3 +392,180 @@ class RiskAssessment(models.Model):
     def risk_label(self):
         """Return human-readable risk label"""
         return dict(self.RISK_LEVEL_CHOICES).get(self.risk_level, 'Unknown')
+
+
+# ============================================================================
+# PHASE 10: PREDICTIVE RISK ASSESSMENT
+# ============================================================================
+# Stores forecasted vital signs and projected deterioration timelines
+
+class PredictiveRiskAssessment(models.Model):
+    """
+    Predictive risk assessment based on forecasted vital signs.
+
+    Stores:
+    - Forecasted vital values (24h, 48h, 72h ahead)
+    - Projected NEWS2 scores at those timepoints
+    - Time to deterioration estimates
+    - Risk trajectory information
+    - Recommended intervention window
+    """
+
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='predictive_risk_assessments'
+    )
+
+    # Reference to the vital that triggered this prediction
+    based_on_vital = models.ForeignKey(
+        VitalSigns,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='predictions'
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    prediction_timestamp = models.DateTimeField(help_text='When prediction was made')
+
+    # ========================
+    # FORECAST HORIZONS
+    # ========================
+    # Current values
+    current_heart_rate = models.FloatField(null=True, blank=True)
+    current_respiratory_rate = models.FloatField(null=True, blank=True)
+    current_oxygen_saturation = models.FloatField(null=True, blank=True)
+    current_bp_systolic = models.FloatField(null=True, blank=True)
+    current_temperature = models.FloatField(null=True, blank=True)
+
+    # Forecasted values at 24 hours
+    forecast_24h_heart_rate = models.FloatField(null=True, blank=True)
+    forecast_24h_respiratory_rate = models.FloatField(null=True, blank=True)
+    forecast_24h_oxygen_saturation = models.FloatField(null=True, blank=True)
+    forecast_24h_bp_systolic = models.FloatField(null=True, blank=True)
+    forecast_24h_temperature = models.FloatField(null=True, blank=True)
+    forecast_24h_news2_score = models.IntegerField(null=True, blank=True)
+
+    # Forecasted values at 48 hours
+    forecast_48h_heart_rate = models.FloatField(null=True, blank=True)
+    forecast_48h_respiratory_rate = models.FloatField(null=True, blank=True)
+    forecast_48h_oxygen_saturation = models.FloatField(null=True, blank=True)
+    forecast_48h_bp_systolic = models.FloatField(null=True, blank=True)
+    forecast_48h_temperature = models.FloatField(null=True, blank=True)
+    forecast_48h_news2_score = models.IntegerField(null=True, blank=True)
+
+    # Forecasted values at 72 hours
+    forecast_72h_heart_rate = models.FloatField(null=True, blank=True)
+    forecast_72h_respiratory_rate = models.FloatField(null=True, blank=True)
+    forecast_72h_oxygen_saturation = models.FloatField(null=True, blank=True)
+    forecast_72h_bp_systolic = models.FloatField(null=True, blank=True)
+    forecast_72h_temperature = models.FloatField(null=True, blank=True)
+    forecast_72h_news2_score = models.IntegerField(null=True, blank=True)
+
+    # ========================
+    # TRAJECTORY ANALYSIS
+    # ========================
+    # Time until patient reaches critical state (hours)
+    hours_to_critical = models.FloatField(null=True, blank=True)
+    projected_critical_timestamp = models.DateTimeField(null=True, blank=True)
+
+    # Vitals at risk of reaching critical
+    vitals_at_risk = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of vital names approaching critical thresholds'
+    )
+
+    # First vital to reach critical (most urgent)
+    critical_vital_first = models.CharField(max_length=50, null=True, blank=True)
+    critical_vital_first_hours = models.FloatField(null=True, blank=True)
+
+    # ========================
+    # FORECAST CONFIDENCE
+    # ========================
+    forecast_confidence = models.FloatField(
+        default=0.7,
+        help_text='Model confidence (0-1) based on data quality'
+    )
+    historical_readings_used = models.IntegerField(
+        default=0,
+        help_text='Number of historical readings used for forecast'
+    )
+
+    # ========================
+    # RISK TRAJECTORY LEVEL
+    # ========================
+    TRAJECTORY_LEVEL_CHOICES = [
+        ('stable', 'Stable'),
+        ('slow_deterioration', 'Slow Deterioration'),
+        ('moderate_deterioration', 'Moderate Deterioration'),
+        ('rapid_deterioration', 'Rapid Deterioration'),
+        ('critical_within_24h', 'Critical Within 24h'),
+    ]
+    trajectory_level = models.CharField(
+        max_length=30,
+        choices=TRAJECTORY_LEVEL_CHOICES,
+        default='stable'
+    )
+
+    # ========================
+    # RECOMMENDATIONS
+    # ========================
+    recommended_actions = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of recommended clinical actions'
+    )
+
+    intervention_window_hours = models.FloatField(
+        null=True,
+        blank=True,
+        help_text='Recommended hours to intervene before critical state'
+    )
+
+    # ========================
+    # FORECAST DETAILS
+    # ========================
+    forecast_details = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Detailed forecast data (trends, model outputs, etc.)'
+    )
+
+    class Meta:
+        ordering = ['-prediction_timestamp']
+        indexes = [
+            models.Index(fields=['patient', '-prediction_timestamp']),
+            models.Index(fields=['trajectory_level', '-prediction_timestamp']),
+        ]
+        verbose_name = 'Predictive Risk Assessment'
+        verbose_name_plural = 'Predictive Risk Assessments'
+
+    def __str__(self):
+        return (
+            f'Prediction for {self.patient} at '
+            f'{self.prediction_timestamp.strftime("%d/%m/%Y %H:%M")} '
+            f'({self.trajectory_level})'
+        )
+
+    @property
+    def is_critical_risk(self):
+        """Is patient at critical risk (critical within 24h)?"""
+        return (
+            self.trajectory_level == 'critical_within_24h' or
+            (self.hours_to_critical and self.hours_to_critical < 24)
+        )
+
+    @property
+    def urgency_level(self):
+        """Clinical urgency based on trajectory"""
+        if not self.hours_to_critical:
+            return 'routine'
+        if self.hours_to_critical < 6:
+            return 'immediate'
+        if self.hours_to_critical < 24:
+            return 'urgent'
+        if self.hours_to_critical < 48:
+            return 'elevated'
+        return 'monitor'
