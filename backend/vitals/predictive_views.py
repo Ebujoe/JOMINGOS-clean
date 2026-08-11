@@ -58,7 +58,7 @@ def predictive_dashboard(request):
         'immediate_count': len([p for p in at_risk if p.urgency_level == 'immediate']),
     }
 
-    return render(request, 'vitals/predictive_dashboard.html', context)
+    return render(request, 'vitals/predictive_simple.html', context)
 
 
 @login_required
