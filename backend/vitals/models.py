@@ -21,6 +21,12 @@ class VitalSigns(models.Model):
     recorded_at = models.DateTimeField(default=timezone.now)
     notes = models.TextField(blank=True)
 
+    # Quality validation fields (Week 1)
+    quality_score = models.FloatField(null=True, blank=True, help_text='0-100 quality score')
+    is_approved = models.BooleanField(default=True, help_text='Passed quality validation')
+    quality_check_timestamp = models.DateTimeField(null=True, blank=True)
+    quality_check_notes = models.TextField(blank=True, help_text='Validation issues and warnings')
+
     class Meta:
         ordering = ['-recorded_at']
         verbose_name_plural = 'Vital Signs'
@@ -593,3 +599,63 @@ class PredictiveRiskAssessment(models.Model):
         if self.hours_to_critical < 48:
             return 'elevated'
         return 'monitor'
+
+
+# ============================================================================
+# WEEK 1: PATIENT BASELINE DATA
+# ============================================================================
+# Stores patient-specific physiological baselines for comparison
+
+class PatientBaselineData(models.Model):
+    """
+    Individual patient's physiological baseline.
+
+    Stores:
+    - Mean value and standard deviation
+    - Min/max and percentiles
+    - Normal range (±1.5 SD)
+    - Number of samples
+    - When calculated
+    - Clinical notes
+    """
+
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='baseline_data'
+    )
+
+    vital_name = models.CharField(max_length=50)  # e.g., heart_rate, temperature
+
+    # Core statistics
+    mean_value = models.DecimalField(max_digits=8, decimal_places=2)
+    std_dev = models.DecimalField(max_digits=8, decimal_places=2)
+    min_value = models.DecimalField(max_digits=8, decimal_places=2)
+    max_value = models.DecimalField(max_digits=8, decimal_places=2)
+    median_value = models.DecimalField(max_digits=8, decimal_places=2)
+
+    # Percentiles
+    percentile_5 = models.DecimalField(max_digits=8, decimal_places=2)
+    percentile_25 = models.DecimalField(max_digits=8, decimal_places=2)
+    percentile_75 = models.DecimalField(max_digits=8, decimal_places=2)
+    percentile_95 = models.DecimalField(max_digits=8, decimal_places=2)
+
+    # Normal range (±1.5 SD from mean)
+    normal_range_lower = models.DecimalField(max_digits=8, decimal_places=2)
+    normal_range_upper = models.DecimalField(max_digits=8, decimal_places=2)
+
+    # Data quality
+    n_samples = models.IntegerField(help_text='Number of measurements used')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Clinical notes
+    clinical_notes = models.TextField(blank=True)
+
+    class Meta:
+        unique_together = ('patient', 'vital_name')
+        ordering = ['patient', 'vital_name']
+        verbose_name_plural = 'Patient Baseline Data'
+
+    def __str__(self):
+        return f'Baseline for {self.patient} - {self.vital_name}'
