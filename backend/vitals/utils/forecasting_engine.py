@@ -1,12 +1,18 @@
 """
-Phase 10: Predictive Forecasting Engine
+Phase 10: Predictive Forecasting Engine - EXTENDED HORIZONS
 
 Forecasts future vital signs using multiple time-series models:
 - Linear regression (simple trend continuation)
 - Exponential smoothing (weighted recent history)
 - Moving average (smoothed trend)
 
-Provides predictions for 24, 48, and 72 hours ahead.
+Provides predictions for:
+- 24 hours ahead
+- 48 hours ahead
+- 72 hours ahead
+- 7 days (168 hours) ahead
+- 30 days (720 hours) ahead
+- 365 days (8760 hours) ahead
 """
 
 import numpy as np
@@ -33,7 +39,16 @@ class ForecastingEngine:
             min_readings: Minimum historical readings required for forecast
         """
         self.min_readings = min_readings
-        self.forecast_horizons = [24, 48, 72]  # hours
+        # Extended horizons: 24h, 48h, 72h, 7d, 30d, 365d
+        self.forecast_horizons = [24, 48, 72, 168, 720, 8760]  # hours
+        self.horizon_labels = {
+            24: '24h',
+            48: '48h',
+            72: '72h',
+            168: '7d',
+            720: '30d',
+            8760: '365d'
+        }
 
     def forecast_vital(
         self,
@@ -278,3 +293,33 @@ class ForecastingEngine:
                 )
 
         return forecasts
+
+    def forecast_all_horizons(
+        self,
+        vital_history: Dict[str, List[Dict]],
+    ) -> Dict:
+        """
+        Forecast all vital signs for all time horizons.
+
+        Args:
+            vital_history: Complete vital sign history
+
+        Returns:
+            Dictionary with forecasts for each horizon:
+            {
+                24: {'heart_rate': {...}, 'respiratory_rate': {...}, ...},
+                48: {...},
+                72: {...},
+                168: {...},  # 7 days
+                720: {...},  # 30 days
+                8760: {...}  # 365 days
+            }
+        """
+        all_forecasts = {}
+
+        for horizon in self.forecast_horizons:
+            all_forecasts[horizon] = self.forecast_all_vitals(
+                vital_history, horizon
+            )
+
+        return all_forecasts

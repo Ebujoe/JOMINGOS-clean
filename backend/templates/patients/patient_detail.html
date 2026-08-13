@@ -55,6 +55,7 @@
             </div>
           </div>
           <div class="col-auto d-flex gap-2 flex-wrap">
+            <a href="{% url 'patient_predictive_detail' patient.pk %}" class="btn btn-info btn-sm"><i class="bi bi-graph-up me-1"></i>Vital Dashboard</a>
             <a href="{% url 'add_care_note' patient.pk %}" class="btn btn-success btn-sm"><i class="bi bi-journal-plus me-1"></i>Care Note</a>
             <a href="{% url 'add_vitals' patient.pk %}" class="btn btn-danger btn-sm"><i class="bi bi-heart-pulse me-1"></i>Vitals</a>
             <a href="{% url 'patient_checklist' patient.pk %}" class="btn btn-warning btn-sm"><i class="bi bi-check2-square me-1"></i>Checklist</a>

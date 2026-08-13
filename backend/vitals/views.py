@@ -9,17 +9,27 @@ from .forms import VitalSignsForm
 
 @login_required
 def vitals_list(request):
-    """Display all recent vitals with NEWS2 scores and related alerts"""
-    # Get latest vital for each patient
-    latest_vitals = VitalSigns.objects.select_related('patient', 'recorded_by').order_by('-recorded_at')[:50]
+    """Display latest vital for each patient with NEWS2 scores and related alerts"""
+    # Get all patients and their latest vital
+    from patients.models import Patient
 
+    patients = Patient.objects.all()
     vitals_data = []
-    for vital in latest_vitals:
-        alerts = vital.deterioration_alerts.all()
-        vitals_data.append({
-            'vital': vital,
-            'alerts': alerts,
-        })
+
+    for patient in patients:
+        latest_vital = VitalSigns.objects.filter(
+            patient=patient
+        ).select_related('recorded_by').order_by('-recorded_at').first()
+
+        if latest_vital:
+            alerts = latest_vital.deterioration_alerts.all()
+            vitals_data.append({
+                'vital': latest_vital,
+                'alerts': alerts,
+            })
+
+    # Sort by recorded_at descending to show most recent first
+    vitals_data.sort(key=lambda x: x['vital'].recorded_at, reverse=True)
 
     return render(request, 'vitals/vitals_dashboard.html', {'vitals_data': vitals_data})
 

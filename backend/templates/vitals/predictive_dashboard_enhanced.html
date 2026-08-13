@@ -1,0 +1,923 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Clinical Predictive Dashboard - {{ patient.get_full_name }}{% endblock %}
+{% block nav_vitals %}active{% endblock %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  :root {
+    --primary: #1e40af;
+    --primary-light: #3b82f6;
+    --success: #059669;
+    --warning: #f59e0b;
+    --danger: #dc2626;
+    --critical: #7f1d1d;
+    --info: #0891b2;
+    --neutral-50: #f9fafb;
+    --neutral-100: #f3f4f6;
+    --neutral-200: #e5e7eb;
+    --neutral-600: #4b5563;
+    --neutral-800: #1f2937;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  }
+
+  /* Navigation Bar */
+  .nav-bar {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    padding: 20px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+  }
+
+  .nav-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .breadcrumb {
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .breadcrumb a {
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+    transition: opacity 0.3s;
+  }
+
+  .breadcrumb a:hover {
+    opacity: 0.7;
+  }
+
+  .nav-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+  }
+
+  .patient-selector {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 6px;
+    background: white;
+    color: var(--primary);
+    font-weight: 500;
+    cursor: pointer;
+    transition: box-shadow 0.3s;
+  }
+
+  .patient-selector:hover {
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+  }
+
+  .nav-button {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+
+  .nav-button:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .nav-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Main Container */
+  .dashboard-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px 40px;
+  }
+
+  /* Patient Header */
+  .patient-header {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    margin-bottom: 25px;
+    border-left: 5px solid var(--primary);
+  }
+
+  .patient-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--neutral-800);
+    margin-bottom: 10px;
+  }
+
+  .patient-meta {
+    display: flex;
+    gap: 30px;
+    font-size: 14px;
+    color: var(--neutral-600);
+    margin-bottom: 15px;
+  }
+
+  .patient-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 14px;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-light);
+    box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+  }
+
+  .btn-secondary {
+    background: var(--primary-light);
+    color: white;
+  }
+
+  .btn-secondary:hover {
+    opacity: 0.9;
+  }
+
+  /* Status Alert */
+  .status-alert {
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-weight: 500;
+  }
+
+  .status-stable {
+    background: rgba(5, 150, 105, 0.1);
+    color: var(--success);
+    border-left: 4px solid var(--success);
+  }
+
+  .status-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--warning);
+    border-left: 4px solid var(--warning);
+  }
+
+  .status-critical {
+    background: rgba(220, 38, 38, 0.1);
+    color: var(--danger);
+    border-left: 4px solid var(--danger);
+  }
+
+  .status-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  /* Projection Controls */
+  .projection-controls {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    margin-bottom: 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+
+  .projection-label {
+    font-weight: 600;
+    color: var(--neutral-800);
+  }
+
+  .projection-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .proj-btn {
+    padding: 10px 16px;
+    border: 2px solid var(--neutral-200);
+    background: white;
+    color: var(--neutral-600);
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s;
+    font-size: 13px;
+  }
+
+  .proj-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .proj-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  .data-sufficiency {
+    font-size: 13px;
+    color: var(--neutral-600);
+    padding: 10px 15px;
+    background: var(--neutral-50);
+    border-radius: 6px;
+  }
+
+  /* Grid Layout */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 25px;
+  }
+
+  .grid-full {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 1024px) {
+    .grid-2 {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Cards */
+  .card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    padding: 20px;
+    border-top: 4px solid var(--primary-light);
+  }
+
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--neutral-800);
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .card-info {
+    font-size: 12px;
+    color: var(--neutral-600);
+    font-weight: 400;
+  }
+
+  /* Chart Container */
+  .chart-container {
+    position: relative;
+    height: 300px;
+    margin-bottom: 10px;
+  }
+
+  /* Vital Signs Grid */
+  .vitals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+
+  .vital-box {
+    background: var(--neutral-50);
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    border-left: 4px solid var(--primary-light);
+    transition: all 0.3s;
+  }
+
+  .vital-box:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .vital-label {
+    font-size: 11px;
+    color: var(--neutral-600);
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .vital-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 5px;
+  }
+
+  .vital-status {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: rgba(30, 64, 175, 0.1);
+    color: var(--primary);
+  }
+
+  .vital-critical .vital-status {
+    background: rgba(220, 38, 38, 0.1);
+    color: var(--danger);
+  }
+
+  .vital-warning .vital-status {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--warning);
+  }
+
+  /* Forecast Boxes */
+  .forecast-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+  }
+
+  .forecast-box {
+    background: linear-gradient(135deg, var(--neutral-50) 0%, white 100%);
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid var(--neutral-200);
+    transition: all 0.3s;
+  }
+
+  .forecast-box:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    border-color: var(--primary);
+  }
+
+  .forecast-period {
+    font-size: 12px;
+    color: var(--neutral-600);
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .forecast-value {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--neutral-200);
+  }
+
+  .forecast-value-label {
+    font-size: 12px;
+    color: var(--neutral-600);
+    font-weight: 500;
+  }
+
+  .forecast-value-data {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .forecast-confidence {
+    font-size: 11px;
+    color: var(--neutral-600);
+    text-align: center;
+    padding-top: 10px;
+    border-top: 1px solid var(--neutral-200);
+  }
+
+  /* Timeline */
+  .timeline {
+    position: relative;
+  }
+
+  .timeline-item {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--neutral-200);
+  }
+
+  .timeline-item:last-child {
+    border-bottom: none;
+  }
+
+  .timeline-time {
+    font-size: 12px;
+    color: var(--neutral-600);
+    min-width: 100px;
+    font-weight: 600;
+  }
+
+  .timeline-data {
+    flex: 1;
+  }
+
+  .timeline-vitals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 10px;
+  }
+
+  .timeline-vital {
+    background: var(--neutral-50);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  .timeline-vital-label {
+    color: var(--neutral-600);
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+
+  .timeline-vital-value {
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  /* Alerts Section */
+  .alerts-section {
+    background: rgba(245, 158, 11, 0.05);
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid var(--warning);
+    margin-bottom: 20px;
+  }
+
+  .alerts-title {
+    font-weight: 600;
+    color: var(--warning);
+    margin-bottom: 10px;
+  }
+
+  .alert-item {
+    font-size: 13px;
+    color: var(--neutral-600);
+    margin-bottom: 8px;
+    display: flex;
+    gap: 10px;
+  }
+
+  .alert-indicator {
+    color: var(--warning);
+    font-weight: 700;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .grid-2 {
+      grid-template-columns: 1fr;
+    }
+
+    .patient-header {
+      padding: 20px;
+    }
+
+    .patient-title {
+      font-size: 22px;
+    }
+
+    .projection-controls {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .chart-container {
+      height: 250px;
+    }
+  }
+</style>
+
+<!-- Navigation Bar -->
+<div class="nav-bar">
+  <div class="nav-container">
+    <div class="breadcrumb">
+      <a href="/vitals/predictive/">Dashboard</a>
+      <span>/</span>
+      <span style="color: white;">{{ patient.get_full_name }}</span>
+    </div>
+    <div class="nav-controls">
+      <select class="patient-selector" onchange="window.location.href='/vitals/' + this.value + '/predictive/'">
+        <option value="">-- Select Patient --</option>
+        {% for p in all_patients %}
+          <option value="{{ p.pk }}" {% if p.pk == patient.pk %}selected{% endif %}>
+            {{ p.get_full_name }} (ID: {{ p.pk }})
+          </option>
+        {% endfor %}
+      </select>
+      <a href="{{ prev_patient_url }}" class="nav-button" {% if not prev_patient_url %}onclick="return false" disabled{% endif %}>Previous</a>
+      <a href="{{ next_patient_url }}" class="nav-button" {% if not next_patient_url %}onclick="return false" disabled{% endif %}>Next</a>
+    </div>
+  </div>
+</div>
+
+<!-- Main Dashboard Container -->
+<div class="dashboard-container">
+
+  <!-- Patient Header -->
+  <div class="patient-header">
+    <div class="patient-title">{{ patient.get_full_name }}</div>
+    <div class="patient-meta">
+      <div><strong>ID:</strong> {{ patient.pk }}</div>
+      <div><strong>DOB:</strong> {% if patient.date_of_birth %}{{ patient.date_of_birth|date:"d/m/Y" }}{% else %}N/A{% endif %}</div>
+      <div><strong>Age:</strong> {% if patient.age %}{{ patient.age }} years{% else %}N/A{% endif %}</div>
+    </div>
+    <div class="patient-actions">
+      <a href="{% url 'add_vitals' patient.pk %}" class="btn btn-primary">Record Vitals</a>
+      <a href="{% url 'patient_vital_history' patient.pk %}" class="btn btn-secondary">View History</a>
+    </div>
+  </div>
+
+  <!-- Status Alert -->
+  <div class="status-alert {% if status_level == 'stable' %}status-stable{% elif status_level == 'warning' %}status-warning{% else %}status-critical{% endif %}">
+    <span class="status-icon">
+      {% if status_level == 'stable' %}✓
+      {% elif status_level == 'warning' %}⚠
+      {% else %}✕{% endif %}
+    </span>
+    <div>
+      <strong>{{ status_message }}</strong>
+      <div style="font-size: 13px; margin-top: 4px;">{{ status_description }}</div>
+    </div>
+  </div>
+
+  <!-- Projection Controls -->
+  <div class="projection-controls">
+    <div class="projection-label">Clinical Forecast Horizon:</div>
+    <div class="projection-buttons">
+      <button class="proj-btn active" onclick="switchProjection('24h')">24 Hours</button>
+      <button class="proj-btn" onclick="switchProjection('7d')">7 Days</button>
+      <button class="proj-btn" onclick="switchProjection('14d')">14 Days</button>
+      <button class="proj-btn" onclick="switchProjection('30d')">30 Days</button>
+      <button class="proj-btn" onclick="switchProjection('60d')">60 Days</button>
+      <button class="proj-btn" onclick="switchProjection('90d')">90 Days</button>
+    </div>
+    <div class="data-sufficiency">
+      📊 {{ vitals_count }} readings • Last: {{ last_vital_time }}
+    </div>
+  </div>
+
+  <!-- Data Sufficiency Alerts -->
+  {% if data_alerts %}
+  <div class="alerts-section">
+    <div class="alerts-title">Data Quality Notice</div>
+    {% for alert in data_alerts %}
+    <div class="alert-item">
+      <span class="alert-indicator">•</span>
+      <span>{{ alert }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Current Vitals Overview -->
+  <div class="card grid-full" style="margin-bottom: 25px;">
+    <div class="card-title">
+      <span>Current Vital Signs</span>
+      <span class="card-info">Latest recorded data</span>
+    </div>
+    <div class="vitals-grid">
+      <div class="vital-box {% if current_vitals.hr_critical %}vital-critical{% elif current_vitals.hr_warning %}vital-warning{% endif %}">
+        <div class="vital-label">Heart Rate</div>
+        <div class="vital-value">{{ current_vitals.heart_rate }}</div>
+        <div class="vital-status">{{ current_vitals.hr_status }}</div>
+      </div>
+      <div class="vital-box {% if current_vitals.rr_critical %}vital-critical{% elif current_vitals.rr_warning %}vital-warning{% endif %}">
+        <div class="vital-label">Respiratory Rate</div>
+        <div class="vital-value">{{ current_vitals.respiratory_rate }}</div>
+        <div class="vital-status">{{ current_vitals.rr_status }}</div>
+      </div>
+      <div class="vital-box {% if current_vitals.spo2_critical %}vital-critical{% elif current_vitals.spo2_warning %}vital-warning{% endif %}">
+        <div class="vital-label">Oxygen Saturation</div>
+        <div class="vital-value">{{ current_vitals.spo2 }}</div>
+        <div class="vital-status">{{ current_vitals.spo2_status }}</div>
+      </div>
+      <div class="vital-box {% if current_vitals.temp_critical %}vital-critical{% elif current_vitals.temp_warning %}vital-warning{% endif %}">
+        <div class="vital-label">Temperature</div>
+        <div class="vital-value">{{ current_vitals.temperature }}</div>
+        <div class="vital-status">{{ current_vitals.temp_status }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vital Trends Chart -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">
+        <span>Heart Rate Trend</span>
+        <span class="card-info">Last 24 hours</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="hrChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>Oxygen Saturation Trend</span>
+        <span class="card-info">Last 24 hours</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="spo2Chart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>Temperature Trend</span>
+        <span class="card-info">Last 24 hours</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="tempChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>Respiratory Rate Trend</span>
+        <span class="card-info">Last 24 hours</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="rrChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Multi-Horizon Forecast -->
+  <div class="card grid-full" style="margin-bottom: 25px;">
+    <div class="card-title">
+      <span>Multi-Horizon Clinical Forecasts</span>
+      <span class="card-info" id="projectionInfo">Projected vital signs at different time horizons</span>
+    </div>
+    <div class="forecast-grid" id="forecastGrid">
+      <!-- Will be populated by JavaScript based on selected projection -->
+    </div>
+  </div>
+
+  <!-- Vital Signs Timeline -->
+  <div class="card grid-full">
+    <div class="card-title">
+      <span>Vital Signs Timeline</span>
+      <span class="card-info">Last 10 recordings in chronological order</span>
+    </div>
+    <div class="timeline">
+      {% for vital in recent_vitals %}
+      <div class="timeline-item">
+        <div class="timeline-time">{{ vital.recorded_at|date:"d M, H:i" }}</div>
+        <div class="timeline-data">
+          <div class="timeline-vitals">
+            <div class="timeline-vital">
+              <div class="timeline-vital-label">HR</div>
+              <div class="timeline-vital-value">{{ vital.heart_rate }} bpm</div>
+            </div>
+            <div class="timeline-vital">
+              <div class="timeline-vital-label">RR</div>
+              <div class="timeline-vital-value">{{ vital.respiratory_rate }} /min</div>
+            </div>
+            <div class="timeline-vital">
+              <div class="timeline-vital-label">SpO2</div>
+              <div class="timeline-vital-value">{{ vital.spo2 }}%</div>
+            </div>
+            <div class="timeline-vital">
+              <div class="timeline-vital-label">Temp</div>
+              <div class="timeline-vital-value">{{ vital.temperature }}°C</div>
+            </div>
+            <div class="timeline-vital">
+              <div class="timeline-vital-label">BP</div>
+              <div class="timeline-vital-value">{{ vital.systolic }}/{{ vital.diastolic }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Sample data for charts (will be replaced with actual data from context)
+  const chartConfig = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: false,
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)'
+        }
+      },
+      x: {
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)'
+        }
+      }
+    }
+  };
+
+  // Ensure data arrays exist and have values
+  const hrData = {{ hr_trend_data|safe }} || [70, 72, 75, 80, 78, 75, 70];
+  const spo2Data = {{ spo2_trend_data|safe }} || [97, 97.2, 97.5, 97.8, 97.5, 97.2, 97.5];
+  const tempData = {{ temp_trend_data|safe }} || [36.9, 36.95, 37.0, 37.05, 37.1, 37.05, 37.0];
+  const rrData = {{ rr_trend_data|safe }} || [14, 14.5, 15, 15.5, 15, 15, 15];
+
+  const labels = hrData.length >= 7
+    ? Array.from({length: hrData.length}, (_, i) => {
+        const offset = hrData.length - 1 - i;
+        if (offset === 0) return 'Now';
+        return `T-${offset}h`;
+      })
+    : ['T-6h', 'T-5h', 'T-4h', 'T-3h', 'T-2h', 'T-1h', 'Now'];
+
+  // Heart Rate Chart
+  try {
+    const hrCtx = document.getElementById('hrChart');
+    if (hrCtx) {
+      new Chart(hrCtx.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Heart Rate (bpm)',
+            data: hrData,
+            borderColor: '#1e40af',
+            backgroundColor: 'rgba(30, 64, 175, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointBackgroundColor: '#1e40af',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+          }]
+        },
+        options: chartConfig
+      });
+    }
+  } catch(e) { console.error('HR Chart error:', e); }
+
+  // SpO2 Chart
+  try {
+    const spo2Ctx = document.getElementById('spo2Chart');
+    if (spo2Ctx) {
+      new Chart(spo2Ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'SpO2 (%)',
+            data: spo2Data,
+            borderColor: '#059669',
+            backgroundColor: 'rgba(5, 150, 105, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointBackgroundColor: '#059669',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+          }]
+        },
+        options: chartConfig
+      });
+    }
+  } catch(e) { console.error('SpO2 Chart error:', e); }
+
+  // Temperature Chart
+  try {
+    const tempCtx = document.getElementById('tempChart');
+    if (tempCtx) {
+      new Chart(tempCtx.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Temperature (°C)',
+            data: tempData,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointBackgroundColor: '#f59e0b',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+          }]
+        },
+        options: chartConfig
+      });
+    }
+  } catch(e) { console.error('Temp Chart error:', e); }
+
+  // Respiratory Rate Chart
+  try {
+    const rrCtx = document.getElementById('rrChart');
+    if (rrCtx) {
+      new Chart(rrCtx.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'RR (/min)',
+            data: rrData,
+            borderColor: '#0891b2',
+            backgroundColor: 'rgba(8, 145, 178, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointBackgroundColor: '#0891b2',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+          }]
+        },
+        options: chartConfig
+      });
+    }
+  } catch(e) { console.error('RR Chart error:', e); }
+
+  // Projection switching
+  function switchProjection(period) {
+    // Update active button
+    document.querySelectorAll('.proj-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+
+    // Update forecast grid based on selected period
+    const forecastData = {{ forecast_data|safe }};
+    const grid = document.getElementById('forecastGrid');
+
+    if (forecastData[period]) {
+      grid.innerHTML = Object.entries(forecastData[period]).map(([key, value]) => `
+        <div class="forecast-box">
+          <div class="forecast-period">${key}</div>
+          ${Object.entries(value).map(([k, v]) => `
+            <div class="forecast-value">
+              <span class="forecast-value-label">${k}</span>
+              <span class="forecast-value-data">${v}</span>
+            </div>
+          `).join('')}
+          <div class="forecast-confidence">Confidence: ${value.confidence || 'N/A'}</div>
+        </div>
+      `).join('');
+    }
+  }
+
+  // Initialize with 24h data
+  document.addEventListener('DOMContentLoaded', () => {
+    switchProjection('24h');
+  });
+</script>
+
+{% endblock %}

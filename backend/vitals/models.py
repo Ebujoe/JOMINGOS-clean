@@ -463,6 +463,30 @@ class PredictiveRiskAssessment(models.Model):
     forecast_72h_temperature = models.FloatField(null=True, blank=True)
     forecast_72h_news2_score = models.IntegerField(null=True, blank=True)
 
+    # Forecasted values at 7 days (168 hours)
+    forecast_7d_heart_rate = models.FloatField(null=True, blank=True)
+    forecast_7d_respiratory_rate = models.FloatField(null=True, blank=True)
+    forecast_7d_oxygen_saturation = models.FloatField(null=True, blank=True)
+    forecast_7d_bp_systolic = models.FloatField(null=True, blank=True)
+    forecast_7d_temperature = models.FloatField(null=True, blank=True)
+    forecast_7d_news2_score = models.IntegerField(null=True, blank=True)
+
+    # Forecasted values at 30 days
+    forecast_30d_heart_rate = models.FloatField(null=True, blank=True)
+    forecast_30d_respiratory_rate = models.FloatField(null=True, blank=True)
+    forecast_30d_oxygen_saturation = models.FloatField(null=True, blank=True)
+    forecast_30d_bp_systolic = models.FloatField(null=True, blank=True)
+    forecast_30d_temperature = models.FloatField(null=True, blank=True)
+    forecast_30d_news2_score = models.IntegerField(null=True, blank=True)
+
+    # Forecasted values at 365 days (1 year)
+    forecast_365d_heart_rate = models.FloatField(null=True, blank=True)
+    forecast_365d_respiratory_rate = models.FloatField(null=True, blank=True)
+    forecast_365d_oxygen_saturation = models.FloatField(null=True, blank=True)
+    forecast_365d_bp_systolic = models.FloatField(null=True, blank=True)
+    forecast_365d_temperature = models.FloatField(null=True, blank=True)
+    forecast_365d_news2_score = models.IntegerField(null=True, blank=True)
+
     # ========================
     # TRAJECTORY ANALYSIS
     # ========================

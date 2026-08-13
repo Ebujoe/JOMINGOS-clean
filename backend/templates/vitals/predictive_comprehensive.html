@@ -1,0 +1,699 @@
+{% extends "base.html" %}
+
+{% block title %}Predictive Forecast - {{ patient.get_full_name }}{% endblock %}
+{% block nav_vitals %}active{% endblock %}
+
+{% block content %}
+<style>
+  .forecast-timeline {
+    position: relative;
+    padding: 20px 0;
+  }
+
+  .timeline-container {
+    border-left: 3px solid #0d6efd;
+    padding-left: 30px;
+    position: relative;
+    margin-left: 15px;
+  }
+
+  .timeline-item {
+    position: relative;
+    margin-bottom: 30px;
+    padding: 15px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: #f8f9fa;
+  }
+
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -38px;
+    top: 25px;
+    width: 12px;
+    height: 12px;
+    background: #0d6efd;
+    border-radius: 50%;
+    border: 3px solid white;
+  }
+
+  .timeline-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #495057;
+    margin-bottom: 10px;
+  }
+
+  .timeline-date {
+    font-size: 12px;
+    color: #6c757d;
+    margin-bottom: 10px;
+  }
+
+  .vital-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 10px;
+  }
+
+  .vital-card {
+    padding: 10px;
+    border-radius: 6px;
+    background: white;
+    border: 1px solid #e9ecef;
+  }
+
+  .vital-card .value {
+    font-size: 18px;
+    font-weight: 600;
+    color: #0d6efd;
+  }
+
+  .vital-card .label {
+    font-size: 11px;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .forecast-section {
+    margin-top: 30px;
+    padding: 20px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    border-radius: 10px;
+  }
+
+  .forecast-period {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    border-left: 4px solid #0d6efd;
+  }
+
+  .forecast-period.critical {
+    border-left-color: #dc3545;
+    background: #fff5f5;
+  }
+
+  .forecast-period.warning {
+    border-left-color: #fd7e14;
+    background: #fffbf0;
+  }
+
+  .period-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #dee2e6;
+  }
+
+  .period-title {
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  .period-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+
+  .period-status.stable {
+    background: #d4edda;
+    color: #155724;
+  }
+
+  .period-status.warning {
+    background: #fff3cd;
+    color: #856404;
+  }
+
+  .period-status.critical {
+    background: #f8d7da;
+    color: #721c24;
+  }
+
+  .forecast-vitals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+  }
+
+  .forecast-vital {
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    text-align: center;
+    border: 1px solid #dee2e6;
+  }
+
+  .forecast-vital.improving {
+    background: #d4edda;
+    border-color: #28a745;
+  }
+
+  .forecast-vital.worsening {
+    background: #fff3cd;
+    border-color: #ffc107;
+  }
+
+  .forecast-vital.critical {
+    background: #f8d7da;
+    border-color: #dc3545;
+  }
+
+  .forecast-vital .value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    display: block;
+    margin-bottom: 5px;
+  }
+
+  .forecast-vital .label {
+    font-size: 10px;
+    color: #666;
+    text-transform: uppercase;
+  }
+
+  .comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+  }
+
+  .comparison-table th {
+    background: #e9ecef;
+    padding: 10px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: #495057;
+  }
+
+  .comparison-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #dee2e6;
+    font-size: 13px;
+  }
+
+  .comparison-table tr:hover {
+    background: #f8f9fa;
+  }
+
+  .trend-arrow {
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  .trend-up {
+    color: #dc3545;
+  }
+
+  .trend-down {
+    color: #28a745;
+  }
+
+  .trend-stable {
+    color: #6c757d;
+  }
+
+  .alert-banner {
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .alert-banner.stable {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+  }
+
+  .alert-banner.warning {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+  }
+
+  .alert-banner.critical {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+  }
+
+  .patient-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #dee2e6;
+  }
+
+  .patient-info h2 {
+    margin: 0;
+    font-size: 28px;
+  }
+
+  .patient-info p {
+    margin: 5px 0;
+    color: #6c757d;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 10px;
+  }
+
+  .record-btn {
+    background: #28a745;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+  }
+
+  .record-btn:hover {
+    background: #218838;
+  }
+
+  .quality-meter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 15px 0;
+  }
+
+  .meter-bar {
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .meter-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ffc107, #28a745);
+    border-radius: 4px;
+  }
+
+  .quality-text {
+    font-size: 12px;
+    color: #6c757d;
+  }
+
+  .nav-bar {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 15px 0;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .nav-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    padding: 0 15px;
+  }
+
+  .nav-link {
+    color: white;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: background 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .nav-link:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+  }
+
+  .nav-link.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .nav-link.disabled:hover {
+    background: none;
+  }
+
+  .patient-selector {
+    background: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    min-width: 250px;
+  }
+
+  .patient-selector:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+  }
+
+  .breadcrumb-nav {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .breadcrumb-nav a {
+    color: white;
+    text-decoration: none;
+  }
+
+  .breadcrumb-nav a:hover {
+    text-decoration: underline;
+  }
+</style>
+
+<!-- PATIENT NAVIGATION BAR -->
+<div class="nav-bar">
+  <div class="container-fluid">
+    <div class="nav-container">
+      <div class="breadcrumb-nav">
+        <a href="{% url 'predictive_dashboard' %}">Dashboard</a>
+        <span>/</span>
+        <span>{{ patient.get_full_name }}</span>
+      </div>
+
+      <select class="patient-selector" onchange="if(this.value) window.location.href='/vitals/' + this.value + '/predictive/'">
+        <option value="">-- Select Patient --</option>
+        {% for p in all_patients %}
+          <option value="{{ p.id }}" {% if p.id == patient.id %}selected{% endif %}>
+            {{ p.get_full_name }} (ID: {{ p.id }})
+          </option>
+        {% endfor %}
+      </select>
+
+      <div style="display: flex; gap: 10px;">
+        {% if prev_patient_id %}
+          <a href="{% url 'patient_predictive_detail' prev_patient_id %}" class="nav-link" title="Previous Patient">
+            Previous
+          </a>
+        {% else %}
+          <span class="nav-link disabled" title="No previous patient">Previous</span>
+        {% endif %}
+
+        {% if next_patient_id %}
+          <a href="{% url 'patient_predictive_detail' next_patient_id %}" class="nav-link" title="Next Patient">
+            Next
+          </a>
+        {% else %}
+          <span class="nav-link disabled" title="No next patient">Next</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app-content-header">
+  <div class="container-fluid">
+    <div class="patient-header">
+      <div class="patient-info">
+        <h2>{{ patient.get_full_name }}</h2>
+        <p><strong>ID:</strong> {{ patient.id }} | <strong>DOB:</strong> {{ patient.date_of_birth|date:"d/m/Y" }}</p>
+      </div>
+      <div class="action-buttons">
+        <a href="{% url 'add_vitals' patient.id %}" class="record-btn">
+          Record Vitals
+        </a>
+        <a href="{% url 'patient_vital_history' patient.id %}" class="record-btn" style="background: #0d6efd;">
+          View History
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app-content">
+  <div class="container-fluid">
+
+    {% if latest_prediction %}
+
+      <!-- RISK ALERT BANNER -->
+      <div class="alert-banner {% if latest_prediction.urgency_level == 'immediate' %}critical{% elif latest_prediction.urgency_level == 'urgent' %}warning{% else %}stable{% endif %}">
+        <div>
+          {% if latest_prediction.urgency_level == 'immediate' %}
+            <strong>IMMEDIATE ACTION REQUIRED</strong>
+            <p style="margin: 5px 0;">Critical vital signs projected within 6 hours. Intervention needed NOW.</p>
+          {% elif latest_prediction.urgency_level == 'urgent' %}
+            <strong>URGENT: HIGH RISK</strong>
+            <p style="margin: 5px 0;">Critical vital signs projected within 24 hours. Close monitoring required.</p>
+          {% else %}
+            <strong>STABLE</strong>
+            <p style="margin: 5px 0;">No critical vitals projected. Continue routine monitoring.</p>
+          {% endif %}
+        </div>
+        <div>
+          <span class="badge" style="font-size: 14px; padding: 8px 12px;">
+            {{ latest_prediction.trajectory_level|title }}
+          </span>
+        </div>
+      </div>
+
+      <!-- VITAL RECORDINGS TIMELINE -->
+      <div class="card mb-4">
+        <div class="card-header" style="background: #0d6efd; color: white;">
+          <h5 class="mb-0">Vital Signs Timeline</h5>
+          <small>Last {{ vitals|length }} recordings in chronological order</small>
+        </div>
+        <div class="card-body">
+          <div class="forecast-timeline">
+            <div class="timeline-container">
+              {% for vital in vitals|dictsort:"recorded_at" %}
+              <div class="timeline-item">
+                <div class="timeline-date">
+                  {{ vital.recorded_at|date:"d M Y, H:i" }}
+                </div>
+                <div class="vital-grid">
+                  <div class="vital-card">
+                    <div class="label">Temperature</div>
+                    <div class="value">{{ vital.temperature|default:"—" }}°C</div>
+                  </div>
+                  <div class="vital-card">
+                    <div class="label">Heart Rate</div>
+                    <div class="value">{{ vital.heart_rate|default:"—" }} bpm</div>
+                  </div>
+                  <div class="vital-card">
+                    <div class="label">Respiratory</div>
+                    <div class="value">{{ vital.respiratory_rate|default:"—" }} /min</div>
+                  </div>
+                  <div class="vital-card">
+                    <div class="label">Oxygen Sat.</div>
+                    <div class="value">{{ vital.oxygen_saturation|default:"—" }}%</div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FORECAST PERIODS: 24h, 7d, 30d, 365d -->
+      <div class="forecast-section">
+        <h4 style="margin-top: 0; color: #333;">Multi-Horizon Forecasts</h4>
+        <p style="color: #666; font-size: 14px;">Predicted vital signs at different time periods based on current trends</p>
+
+        <!-- 24 HOUR FORECAST -->
+        <div class="forecast-period">
+          <div class="period-header">
+            <div class="period-title">Next 24 Hours</div>
+            <span class="period-status stable">
+              {% if latest_prediction.trajectory_level == 'stable' or latest_prediction.trajectory_level == 'slow_deterioration' %}
+                STABLE
+              {% elif latest_prediction.trajectory_level == 'moderate_deterioration' %}
+                WARNING
+              {% else %}
+                CRITICAL
+              {% endif %}
+            </span>
+          </div>
+          <div class="forecast-vitals">
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_24h_heart_rate|default:"—" }}</span>
+              <span class="label">HR (bpm)</span>
+            </div>
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_24h_respiratory_rate|default:"—" }}</span>
+              <span class="label">RR (/min)</span>
+            </div>
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_24h_oxygen_saturation|default:"—" }}</span>
+              <span class="label">SpO2 (%)</span>
+            </div>
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_24h_temperature|default:"—" }}</span>
+              <span class="label">Temp (°C)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 7 DAY FORECAST -->
+        <div class="forecast-period">
+          <div class="period-header">
+            <div class="period-title">Next 7 Days</div>
+            <span class="period-status {% if latest_prediction.forecast_7d_heart_rate %}warning{% else %}stable{% endif %}">
+              TREND ANALYSIS
+            </span>
+          </div>
+          <div class="forecast-vitals">
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_7d_heart_rate|default:"—" }}</span>
+              <span class="label">HR (bpm)</span>
+            </div>
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_7d_respiratory_rate|default:"—" }}</span>
+              <span class="label">RR (/min)</span>
+            </div>
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_7d_oxygen_saturation|default:"—" }}</span>
+              <span class="label">SpO2 (%)</span>
+            </div>
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_7d_temperature|default:"—" }}</span>
+              <span class="label">Temp (°C)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 30 DAY FORECAST -->
+        <div class="forecast-period">
+          <div class="period-header">
+            <div class="period-title">Next 30 Days</div>
+            <span class="period-status stable">LONG-TERM TREND</span>
+          </div>
+          <div class="forecast-vitals">
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_30d_heart_rate|default:"—" }}</span>
+              <span class="label">HR (bpm)</span>
+            </div>
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_30d_respiratory_rate|default:"—" }}</span>
+              <span class="label">RR (/min)</span>
+            </div>
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_30d_oxygen_saturation|default:"—" }}</span>
+              <span class="label">SpO2 (%)</span>
+            </div>
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_30d_temperature|default:"—" }}</span>
+              <span class="label">Temp (°C)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 365 DAY FORECAST -->
+        <div class="forecast-period">
+          <div class="period-header">
+            <div class="period-title">Next 365 Days (1 Year)</div>
+            <span class="period-status stable">YEARLY OUTLOOK</span>
+          </div>
+          <div class="forecast-vitals">
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_365d_heart_rate|default:"—" }}</span>
+              <span class="label">HR (bpm)</span>
+            </div>
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_365d_respiratory_rate|default:"—" }}</span>
+              <span class="label">RR (/min)</span>
+            </div>
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_365d_oxygen_saturation|default:"—" }}</span>
+              <span class="label">SpO2 (%)</span>
+            </div>
+            <div class="forecast-vital">
+              <span class="value">{{ latest_prediction.forecast_365d_temperature|default:"—" }}</span>
+              <span class="label">Temp (°C)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECOMMENDATIONS -->
+      <div class="card mt-4">
+        <div class="card-header" style="background: #ffc107; color: white;">
+          <h5 class="mb-0">Clinical Recommendations</h5>
+        </div>
+        <div class="card-body">
+          {% if latest_prediction.recommended_actions %}
+            <ol>
+              {% for action in latest_prediction.recommended_actions %}
+                <li class="mb-2">{{ action }}</li>
+              {% endfor %}
+            </ol>
+          {% else %}
+            <p class="text-muted">No specific actions recommended at this time. Continue routine monitoring.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- FORECAST QUALITY -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5 class="mb-0">Forecast Quality & Confidence</h5>
+        </div>
+        <div class="card-body">
+          <div class="quality-meter">
+            <div class="meter-bar">
+              <div class="meter-fill" style="width: {{ forecast_confidence_percent|floatformat:0 }}%"></div>
+            </div>
+            <span class="quality-text"><strong>{{ forecast_confidence_percent|floatformat:0 }}%</strong> Confidence</span>
+          </div>
+          <p style="margin: 10px 0; color: #666; font-size: 14px;">
+            Based on {{ latest_prediction.historical_readings_used }} historical readings
+          </p>
+          <small style="color: #999;">
+            Higher confidence indicates more consistent trends and reliable forecasts.
+            Forecasts with low confidence should be used with clinical judgment.
+          </small>
+        </div>
+      </div>
+
+    {% else %}
+
+      <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>No predictive forecast available.</strong>
+        {% if latest_vital %}
+          Need at least 3 vital sign recordings to generate forecasts. Currently have {{ vital_count }} recording(s).
+        {% else %}
+          Record vital signs for this patient to generate forecasts.
+        {% endif %}
+      </div>
+
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}
