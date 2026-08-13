@@ -84,7 +84,7 @@ class MonitoringInfrastructure:
                 },
                 'prediction_accuracy': {
                     'metric': 'Actual vs forecast within 95% PI',
-                    'target': '≥80%',
+                    'target': '>=80%',
                     'threshold': 75,
                     'alert': 'HIGH',
                 },

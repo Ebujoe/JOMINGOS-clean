@@ -83,7 +83,8 @@ class Command(BaseCommand):
             self.stdout.write("\nREAL-TIME METRICS:")
             for metric, config in monitoring['real_time_metrics'].items():
                 self.stdout.write(f"  {metric}:")
-                self.stdout.write(f"    - Target: {config['target']}")
+                target = config['target'].replace('≥', '>=').replace('≤', '<=')
+                self.stdout.write(f"    - Target: {target}")
                 self.stdout.write(f"    - Alert threshold: {config['threshold']}")
                 self.stdout.write(f"    - Severity: {config['alert']}")
 
@@ -185,7 +186,7 @@ class Command(BaseCommand):
         self.stdout.write(f"{'='*70}\n")
 
         self.stdout.write(self.style.SUCCESS(
-            "✓ Deployment documentation complete\n"
+            "[OK] Deployment documentation complete\n"
             "  - Readiness checklist (17 items)\n"
             "  - Monitoring setup (6 metrics + daily/weekly/monthly)\n"
             "  - Staff training (3 roles)\n"
