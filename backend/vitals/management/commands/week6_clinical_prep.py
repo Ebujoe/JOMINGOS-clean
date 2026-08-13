@@ -115,7 +115,8 @@ class Command(BaseCommand):
         for case in cases[:5]:
             self.stdout.write(f"  Case: {case['label']} ({case['vital']} @ {case['horizon']}h)")
             self.stdout.write(f"    Forecast: {case['forecast']:.1f}, Actual: {case['actual']:.1f}, Error: {case['error']:.1f}")
-            self.stdout.write(f"    Confidence: {case['confidence']:.0f}%, Within PI: {'✓' if case['within_pi'] else '✗'}")
+            pi_status = 'YES' if case['within_pi'] else 'NO'
+            self.stdout.write(f"    Confidence: {case['confidence']:.0f}%, Within PI: {pi_status}")
 
         report_data['case_summaries'] = cases
 
@@ -148,8 +149,8 @@ class Command(BaseCommand):
         # Final message
         self.stdout.write(f"\n{'='*70}")
         if readiness['readiness_score'] >= 75:
-            self.stdout.write(self.style.SUCCESS("✓ READY FOR WEEK 7 CLINICAL VALIDATION"))
+            self.stdout.write(self.style.SUCCESS("[OK] READY FOR WEEK 7 CLINICAL VALIDATION"))
         elif readiness['readiness_score'] >= 50:
-            self.stdout.write(self.style.WARNING("⚠ READY WITH MONITORING FOR WEEK 7"))
+            self.stdout.write(self.style.WARNING("[WARN] READY WITH MONITORING FOR WEEK 7"))
         else:
-            self.stdout.write(self.style.ERROR("✗ CONTINUE DEVELOPMENT BEFORE WEEK 7"))
+            self.stdout.write(self.style.ERROR("[FAIL] CONTINUE DEVELOPMENT BEFORE WEEK 7"))
