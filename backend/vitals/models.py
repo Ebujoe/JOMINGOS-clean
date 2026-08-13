@@ -659,3 +659,113 @@ class PatientBaselineData(models.Model):
 
     def __str__(self):
         return f'Baseline for {self.patient} - {self.vital_name}'
+
+
+# ============================================================================
+# WEEK 3: PATIENT FORECASTS
+# ============================================================================
+# Stores generated forecasts with uncertainty quantification
+
+class PatientForecast(models.Model):
+    """
+    Generated forecast for a patient vital sign.
+
+    Stores:
+    - Point estimate
+    - Confidence score
+    - Prediction intervals (90%, 95%)
+    - Uncertainty components
+    - Clinical assessment
+    - Recommendations
+    """
+
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='forecasts'
+    )
+
+    vital_name = models.CharField(max_length=50)
+    horizon_hours = models.IntegerField()  # Hours ahead forecasted
+
+    # Forecast value
+    forecast_value = models.DecimalField(max_digits=8, decimal_places=2)
+
+    # Confidence
+    confidence_score = models.FloatField()  # 0-100
+
+    # Prediction intervals
+    prediction_interval_95_lower = models.DecimalField(max_digits=8, decimal_places=2)
+    prediction_interval_95_upper = models.DecimalField(max_digits=8, decimal_places=2)
+    prediction_interval_90_lower = models.DecimalField(max_digits=8, decimal_places=2)
+    prediction_interval_90_upper = models.DecimalField(max_digits=8, decimal_places=2)
+
+    # Reliability assessment
+    RELIABILITY_CHOICES = [
+        ('HIGH', 'High'),
+        ('MEDIUM', 'Medium'),
+        ('LOW', 'Low'),
+    ]
+    forecast_reliability = models.CharField(
+        max_length=10,
+        choices=RELIABILITY_CHOICES,
+        default='LOW'
+    )
+
+    # Clinical assessment
+    recommendation = models.TextField(blank=True)
+    clinical_notes = models.TextField(blank=True)
+
+    # Complete forecast details (JSON)
+    forecast_details = models.JSONField(default=dict, blank=True)
+
+    # Tracking
+    created_at = models.DateTimeField(auto_now_add=True)
+    forecast_timestamp = models.DateTimeField(auto_now_add=True)
+
+    # Actual value (when measurement happens)
+    actual_value = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Actual value when measurement taken'
+    )
+    actual_recorded_at = models.DateTimeField(null=True, blank=True)
+    forecast_error = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Absolute error from forecast'
+    )
+
+    class Meta:
+        ordering = ['-forecast_timestamp']
+        indexes = [
+            models.Index(fields=['patient', '-forecast_timestamp']),
+            models.Index(fields=['vital_name', '-forecast_timestamp']),
+        ]
+        verbose_name_plural = 'Patient Forecasts'
+
+    def __str__(self):
+        return (
+            f'Forecast for {self.patient} - {self.vital_name} '
+            f'({self.horizon_hours}h @ {self.confidence_score:.0f}%)'
+        )
+
+    @property
+    def is_accurate(self) -> bool:
+        """Check if forecast was accurate (within 95% PI)."""
+        if self.actual_value is None:
+            return None
+        return (
+            float(self.prediction_interval_95_lower) <= float(self.actual_value) <=
+            float(self.prediction_interval_95_upper)
+        )
+
+    def calculate_forecast_error(self):
+        """Calculate and store forecast error."""
+        if self.actual_value:
+            self.forecast_error = abs(float(self.forecast_value) - float(self.actual_value))
+            self.save()
