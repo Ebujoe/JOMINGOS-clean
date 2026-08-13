@@ -53,7 +53,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--with-issues',
             action='store_true',
-            help='Introduce quality issues (10%)',
+            help='Introduce quality issues (10 percent)',
         )
 
     def handle(self, *args, **options):

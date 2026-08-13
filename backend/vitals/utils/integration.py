@@ -21,8 +21,8 @@ from decimal import Decimal
 import logging
 
 from django.db.models import Q, Avg
-from backend.patients.models import Patient
-from backend.vitals.models import VitalSigns, PatientBaselineData
+from patients.models import Patient
+from vitals.models import VitalSigns, PatientBaselineData
 
 from .data_quality_validator import DataQualityValidator, QualityCheckResult
 from .audit_trail import AuditTrail, AuditAction

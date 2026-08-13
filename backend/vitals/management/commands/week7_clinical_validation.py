@@ -92,7 +92,15 @@ class Command(BaseCommand):
             }
 
         if not all_forecasts:
-            self.stdout.write(self.style.ERROR("No forecasts with actual values found"))
+            self.stdout.write(self.style.WARNING(
+                "\nNo forecasts with actual values found.\n"
+                "Week 7 clinical validation requires forecast data from Weeks 3-6.\n"
+                "\nTo generate test data and forecasts:\n"
+                "  1. python manage.py generate_test_vitals --count=50\n"
+                "  2. python manage.py generate_forecasts --store --all-horizons\n"
+                "\nDemonstrating Week 7 framework structure...\n"
+            ))
+            self._demonstrate_framework()
             return
 
         # Clinical case summaries
@@ -215,9 +223,41 @@ class Command(BaseCommand):
         self.stdout.write(f"\n{'='*70}")
         if not options['safety_only'] and not options['utility_only']:
             if approval.get('approval_status') == 'APPROVED_FOR_DEPLOYMENT':
-                self.stdout.write(self.style.SUCCESS("✓ APPROVED FOR WEEK 8 DEPLOYMENT"))
+                self.stdout.write(self.style.SUCCESS("[OK] APPROVED FOR WEEK 8 DEPLOYMENT"))
             elif approval.get('approval_status') == 'APPROVED_FOR_RESEARCH_USE':
-                self.stdout.write(self.style.WARNING("⚠ APPROVED FOR RESEARCH USE ONLY"))
+                self.stdout.write(self.style.WARNING("[WARN] APPROVED FOR RESEARCH USE ONLY"))
             else:
-                self.stdout.write(self.style.ERROR("✗ NOT APPROVED - CONTINUE DEVELOPMENT"))
+                self.stdout.write(self.style.ERROR("[FAIL] NOT APPROVED - CONTINUE DEVELOPMENT"))
         self.stdout.write(f"{'='*70}\n")
+
+    def _demonstrate_framework(self):
+        """Demonstrate Week 7 framework structure."""
+        self.stdout.write(self.style.SUCCESS("\nWEEK 7 FRAMEWORK STRUCTURE"))
+        self.stdout.write("=" * 70)
+
+        self.stdout.write("\nExpertPanelReviewMaterials:")
+        self.stdout.write("  - Selects 50 diverse predictions for expert review")
+        self.stdout.write("  - Stratified sampling by vital and horizon")
+        self.stdout.write("  - Returns review items with clinical assessment")
+
+        self.stdout.write("\nSafetyAssessment:")
+        self.stdout.write("  - Unsafe predictions: error > 10 units")
+        self.stdout.write("  - Missed alerts: true abnormality not detected")
+        self.stdout.write("  - False positives: predicted abnormality not observed")
+        self.stdout.write("  - Safety score: 0-100")
+
+        self.stdout.write("\nUtilityAssessment:")
+        self.stdout.write("  - Overall accuracy: within 95% PI")
+        self.stdout.write("  - High-confidence accuracy: confidence >= 70%")
+        self.stdout.write("  - Horizon-specific utility")
+        self.stdout.write("  - Utility score: 0-100")
+
+        self.stdout.write("\nClinicalApprovalWorkflow:")
+        self.stdout.write("  - Safety gate: score >= 70")
+        self.stdout.write("  - Utility gate: score >= 70")
+        self.stdout.write("  - Outcomes:")
+        self.stdout.write("    * APPROVED_FOR_DEPLOYMENT (both gates)")
+        self.stdout.write("    * APPROVED_FOR_RESEARCH_USE (safety only)")
+        self.stdout.write("    * NOT_APPROVED (insufficient metrics)")
+
+        self.stdout.write(f"\n{'='*70}")
