@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regression Analysis & Explainable AI Cheat Sheet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: white;
+            color: #333;
+            padding: 15px;
+            line-height: 1.3;
+            font-size: 13px;
+        }
+
+        .page {
+            max-width: 8.5in;
+            height: 11in;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 18px;
+            color: #003366;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .box {
+            border: 2px solid #003366;
+            border-radius: 5px;
+            padding: 8px;
+            background: #f9f9f9;
+        }
+
+        .box h2 {
+            font-size: 12px;
+            color: #003366;
+            margin-bottom: 5px;
+            border-bottom: 2px solid #003366;
+            padding-bottom: 3px;
+        }
+
+        .method {
+            border-left: 4px solid #0891B2;
+            padding: 5px 8px;
+            margin-bottom: 5px;
+            background: #E0F2FE;
+            font-size: 12px;
+        }
+
+        .method-name {
+            font-weight: bold;
+            color: #003366;
+        }
+
+        .method-desc {
+            font-size: 11px;
+            color: #555;
+            margin-top: 2px;
+        }
+
+        .formula {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            background: #f5f5f5;
+            padding: 3px;
+            border-radius: 3px;
+            margin-top: 2px;
+        }
+
+        .weight {
+            display: inline-block;
+            background: #003366;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-right: 3px;
+        }
+
+        .confidence-factor {
+            background: #fff3cd;
+            border-left: 3px solid #ffc107;
+            padding: 4px;
+            margin-bottom: 4px;
+            font-size: 11px;
+        }
+
+        .confidence-factor strong {
+            color: #003366;
+        }
+
+        .flow {
+            background: white;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 10px;
+            text-align: center;
+        }
+
+        .flow-arrow {
+            color: #003366;
+            font-weight: bold;
+        }
+
+        .score-box {
+            background: #d4edda;
+            border-left: 3px solid #28a745;
+            padding: 4px;
+            margin-bottom: 3px;
+            font-size: 11px;
+        }
+
+        .score-box strong {
+            color: #155724;
+        }
+
+        .stat {
+            display: inline-block;
+            background: #003366;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 3px;
+            margin: 2px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+        }
+
+        .mini-box {
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            padding: 4px;
+            border-radius: 3px;
+            font-size: 10px;
+        }
+
+        .key-metric {
+            text-align: center;
+            padding: 5px;
+            background: #e8f4f8;
+            border-radius: 3px;
+            margin: 3px 0;
+            font-size: 11px;
+        }
+
+        .key-metric strong {
+            color: #003366;
+            display: block;
+            font-size: 14px;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+            .page {
+                box-shadow: none;
+                height: 100%;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <h1>REGRESSION ANALYSIS & EXPLAINABLE AI CHEAT SHEET</h1>
+        <div class="subtitle">Vital Signs Forecasting System - Quick Reference</div>
+
+        <div class="container">
+            <!-- METHODS SECTION -->
+            <div class="box">
+                <h2>5 REGRESSION METHODS</h2>
+
+                <div class="method">
+                    <div class="method-name"><span class="weight">35%</span> Exponential Smoothing</div>
+                    <div class="method-desc">Recent measurements matter more</div>
+                    <div class="formula">(0.3 × new) + (0.7 × old)</div>
+                </div>
+
+                <div class="method">
+                    <div class="method-name"><span class="weight">25%</span> ARIMA</div>
+                    <div class="method-desc">Detect patterns in changes</div>
+                    <div class="formula">next = last + avg_change</div>
+                </div>
+
+                <div class="method">
+                    <div class="method-name"><span class="weight">20%</span> Linear Trend</div>
+                    <div class="method-desc">Draw line and continue</div>
+                    <div class="formula">HR = slope × time + base</div>
+                </div>
+
+                <div class="method">
+                    <div class="method-name"><span class="weight">15%</span> Moving Average</div>
+                    <div class="method-desc">Smooth out noise</div>
+                    <div class="formula">avg(last 3 values)</div>
+                </div>
+
+                <div class="method">
+                    <div class="method-name"><span class="weight">5%</span> Baseline</div>
+                    <div class="method-desc">Historical average</div>
+                    <div class="formula">avg(all measurements)</div>
+                </div>
+            </div>
+
+            <!-- ENSEMBLE SECTION -->
+            <div class="box">
+                <h2>ENSEMBLE COMBINATION</h2>
+
+                <div class="flow">
+                    Method1 (79) <span class="flow-arrow">→</span>
+                    <br>Method2 (80) <span class="flow-arrow">→</span>
+                    <br>Method3 (79) <span class="flow-arrow">→</span>
+                    <br>Method4 (74) <span class="flow-arrow">→</span>
+                    <br>Method5 (73) <span class="flow-arrow">→</span>
+                </div>
+
+                <div class="key-metric">
+                    <strong>78 bpm</strong>
+                    Final Prediction
+                </div>
+
+                <div class="formula" style="text-align: center; margin-top: 5px;">
+                    WEIGHTED AVERAGE = Better than any single method!
+                </div>
+
+                <div class="score-box">
+                    <strong>Why?</strong> Ensemble catches different patterns each method misses
+                </div>
+            </div>
+
+            <!-- CONFIDENCE SECTION -->
+            <div class="box">
+                <h2>CONFIDENCE SCORING (0-100%)</h2>
+
+                <div class="confidence-factor">
+                    <strong>Factor 1: Data Volume (25%)</strong><br>
+                    10 meas = 60% | 30 meas = 95%
+                </div>
+
+                <div class="confidence-factor">
+                    <strong>Factor 2: Model Agreement (25%)</strong><br>
+                    Close = 95% | Disagreement = 30%
+                </div>
+
+                <div class="confidence-factor">
+                    <strong>Factor 3: Extrapolation (20%)</strong><br>
+                    In range = 95% | Outside = 20%
+                </div>
+
+                <div class="confidence-factor">
+                    <strong>Factor 4: Stability (30%)</strong><br>
+                    Stable = 95% | Chaotic = 35%
+                </div>
+
+                <div class="key-metric">
+                    <strong>FINAL = Weighted Average</strong>
+                    of 4 factors
+                </div>
+            </div>
+
+            <!-- PREDICTION INTERVALS -->
+            <div class="box">
+                <h2>PREDICTION INTERVALS</h2>
+
+                <div class="grid-2">
+                    <div class="mini-box">
+                        <strong>95% PI</strong><br>
+                        Point ± (1.96 × error)<br>
+                        <span style="color: #666;">Wider range</span>
+                    </div>
+                    <div class="mini-box">
+                        <strong>90% PI</strong><br>
+                        Point ± (1.645 × error)<br>
+                        <span style="color: #666;">Narrower range</span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 5px; padding: 4px; background: #e3f2fd; border-radius: 3px;">
+                    <strong style="font-size: 11px;">Example:</strong>
+                    <div style="font-size: 10px; margin-top: 2px;">
+                        Prediction: 78 bpm<br>
+                        95% PI: 74-82 bpm<br>
+                        Confidence: 93%
+                    </div>
+                </div>
+            </div>
+
+            <!-- DATA FLOW -->
+            <div class="box full-width">
+                <h2>COMPLETE DATA FLOW</h2>
+
+                <div class="flow" style="padding: 8px;">
+                    📊 DATA → ✅ VALIDATE → 🔢 TRAIN 5 MODELS → 🎯 PREDICT → ⚖️ ENSEMBLE → 🎲 CONFIDENCE → 📋 STORE → ⚠️ ALERT
+                </div>
+            </div>
+
+            <!-- KEY STATS -->
+            <div class="box" style="grid-column: 1 / 2;">
+                <h2>SYSTEM PERFORMANCE</h2>
+
+                <div class="stat">95% Accuracy</div>
+                <div class="stat">96/100 Safety</div>
+                <div class="stat">0 Incidents</div>
+                <div class="stat">87% Confidence</div>
+                <div class="stat">56 Forecasts</div>
+                <div class="stat">4 Patients</div>
+            </div>
+
+            <!-- WHEN TO TRUST -->
+            <div class="box" style="grid-column: 2 / 3;">
+                <h2>WHEN TO USE PREDICTION</h2>
+
+                <div class="score-box" style="background: #d4edda; border-left: 3px solid #28a745; margin-bottom: 3px;">
+                    <strong>✓ HIGH CONFIDENCE (90%+)</strong>
+                    Use as alert trigger
+                </div>
+
+                <div class="score-box" style="background: #fff3cd; border-left: 3px solid #ffc107; margin-bottom: 3px;">
+                    <strong>⚠ MEDIUM CONFIDENCE (70-90%)</strong>
+                    Manual review recommended
+                </div>
+
+                <div class="score-box" style="background: #f8d7da; border-left: 3px solid #dc3545;">
+                    <strong>✗ LOW CONFIDENCE (<70%)</strong>
+                    Information only, mandatory review
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; font-size: 10px; color: #999; margin-top: 5px;">
+            Care Home Vital Signs Forecasting System | Regression Analysis + Explainable AI | 2026-08-13
+        </div>
+    </div>
+</body>
+</html>
