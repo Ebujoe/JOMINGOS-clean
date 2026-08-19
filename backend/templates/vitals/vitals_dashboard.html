@@ -69,6 +69,7 @@
                   <th style="width: 120px;">NEWS2 Score</th>
                   <th style="width: 150px;">Risk Level</th>
                   <th style="width: 180px;">Alerts</th>
+                  <th style="width: 180px;">Fall Detection</th>
                   <th style="width: 140px;">Recorded By</th>
                   <th style="width: 150px;">Time</th>
                 </tr>
@@ -143,6 +144,22 @@
                         {% endif %}
                       </td>
                       <td>
+                        <!-- FALL DETECTION TOGGLE -->
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                          <button
+                            id="fall-toggle-{{ vital.patient.id }}"
+                            class="fall-toggle-switch disabled"
+                            data-patient-id="{{ vital.patient.id }}"
+                            style="width: 45px; height: 24px; background-color: #ccc; border-radius: 12px; cursor: pointer; position: relative; transition: background-color 0.3s; border: none; padding: 0;"
+                            title="Enable/disable fall detection for {{ vital.patient.get_full_name }}">
+                            <div class="fall-toggle-slider" style="width: 20px; height: 20px; background-color: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: left 0.3s;"></div>
+                          </button>
+                          <span id="fall-status-{{ vital.patient.id }}" style="font-size: 12px; font-weight: bold;">
+                            ⊘ <span style="background-color: #e2e3e5; color: #383d41; padding: 2px 6px; border-radius: 3px; font-size: 11px;">DISABLED</span>
+                          </span>
+                        </div>
+                      </td>
+                      <td>
                         <small>{% if vital.recorded_by %}{{ vital.recorded_by.get_full_name|default:vital.recorded_by.username }}{% else %}System{% endif %}</small>
                       </td>
                       <td>
@@ -210,5 +227,32 @@
   }
   updateLiveDate();
   setInterval(updateLiveDate, 60000);
+
+  // Fall Detection Toggle Handler
+  document.addEventListener('DOMContentLoaded', () => {
+    const toggles = document.querySelectorAll('.fall-toggle-switch');
+    toggles.forEach(toggle => {
+      const patientId = toggle.getAttribute('data-patient-id');
+      const statusSpan = document.getElementById(`fall-status-${patientId}`);
+
+      toggle.addEventListener('click', () => {
+        const isDisabled = toggle.classList.contains('disabled');
+
+        if (isDisabled) {
+          // Enable
+          toggle.classList.remove('disabled');
+          toggle.style.backgroundColor = '#28a745';
+          statusSpan.innerHTML = '🟢 <span style="background-color: #d4edda; color: #155724; padding: 2px 6px; border-radius: 3px; font-size: 11px;">ENABLED</span>';
+          console.log(`✅ Fall detection ENABLED for patient ${patientId}`);
+        } else {
+          // Disable
+          toggle.classList.add('disabled');
+          toggle.style.backgroundColor = '#ccc';
+          statusSpan.innerHTML = '⊘ <span style="background-color: #e2e3e5; color: #383d41; padding: 2px 6px; border-radius: 3px; font-size: 11px;">DISABLED</span>';
+          console.log(`❌ Fall detection DISABLED for patient ${patientId}`);
+        }
+      });
+    });
+  });
 </script>
 {% endblock %}

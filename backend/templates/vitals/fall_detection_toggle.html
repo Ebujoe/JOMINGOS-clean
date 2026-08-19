@@ -1,0 +1,135 @@
+<!-- FALL DETECTION TOGGLE - Add to Dashboard Table -->
+
+<style>
+.fall-detection-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.fall-toggle-switch {
+    width: 45px;
+    height: 24px;
+    background-color: #ccc;
+    border-radius: 12px;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.3s;
+    border: none;
+    padding: 0;
+}
+
+.fall-toggle-switch.enabled {
+    background-color: #28a745;
+}
+
+.fall-toggle-switch.disabled {
+    background-color: #dc3545;
+}
+
+.fall-toggle-slider {
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: left 0.3s;
+}
+
+.fall-toggle-switch.enabled .fall-toggle-slider {
+    left: 23px;
+}
+
+.fall-icon {
+    font-size: 18px;
+}
+
+.fall-status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.fall-status-low {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.fall-status-medium {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.fall-status-high {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.fall-status-inactive {
+    background-color: #e2e3e5;
+    color: #383d41;
+}
+</style>
+
+<!-- Toggle for each patient -->
+<script>
+class FallDetectionToggle {
+    constructor(patientId) {
+        this.patientId = patientId;
+        this.isEnabled = false;
+        this.init();
+    }
+
+    init() {
+        const toggle = document.getElementById(`fall-toggle-${this.patientId}`);
+        if (toggle) {
+            toggle.addEventListener('click', () => this.toggle());
+        }
+    }
+
+    toggle() {
+        this.isEnabled = !this.isEnabled;
+        const toggle = document.getElementById(`fall-toggle-${this.patientId}`);
+        const status = document.getElementById(`fall-status-${this.patientId}`);
+
+        if (this.isEnabled) {
+            toggle.classList.add('enabled');
+            toggle.classList.remove('disabled');
+            status.innerHTML = '🟢 <span class="fall-status-badge fall-status-low">MONITORING</span>';
+        } else {
+            toggle.classList.add('disabled');
+            toggle.classList.remove('enabled');
+            status.innerHTML = '⊘ <span class="fall-status-badge fall-status-inactive">DISABLED</span>';
+        }
+    }
+}
+
+// Initialize all toggles when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    const toggles = document.querySelectorAll('[data-patient-id]');
+    toggles.forEach(el => {
+        const patientId = el.getAttribute('data-patient-id');
+        new FallDetectionToggle(patientId);
+    });
+});
+</script>
+
+<!-- HTML to add to table row -->
+<template id="fall-detection-column">
+    <td class="fall-detection-toggle">
+        <button
+            id="fall-toggle-{{ patient.id }}"
+            class="fall-toggle-switch disabled"
+            data-patient-id="{{ patient.id }}"
+            title="Enable/disable fall detection for {{ patient.get_full_name }}">
+            <div class="fall-toggle-slider"></div>
+        </button>
+        <span id="fall-status-{{ patient.id }}" class="fall-icon">
+            ⊘ <span class="fall-status-badge fall-status-inactive">DISABLED</span>
+        </span>
+    </td>
+</template>
