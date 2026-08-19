@@ -95,8 +95,8 @@ class SimpleFallDetector:
         # Convert to grayscale
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        # Apply threshold to find person
-        _, thresh = cv2.threshold(gray, 100, 255, cv2.THRESH_BINARY)
+        # Apply threshold to find person (use Otsu's method for better detection)
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
         # Find contours (person outline)
         contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -108,7 +108,7 @@ class SimpleFallDetector:
         largest_contour = max(contours, key=cv2.contourArea)
         area = cv2.contourArea(largest_contour)
 
-        if area < 1000:
+        if area < 5000:  # Increased threshold - need larger silhouette
             return 'unknown', 0, 'Person too small/far'
 
         # Get bounding box
@@ -119,52 +119,62 @@ class SimpleFallDetector:
         explanation_parts = []
 
         # Rule 1: Height analysis (how far down is the person?)
+        # NORMAL: Person's head at top, feet at bottom (y close to 0, bh close to h)
+        # FALLEN: Person's head at middle, body extends to sides
         person_bottom = y + bh
-        lower_percentage = (person_bottom / h) * 100  # How close to bottom of frame?
+        person_top = y
 
-        if lower_percentage > 80:
-            risk_score += 40
-            explanation_parts.append("Person very low (may be fallen)")
-        elif lower_percentage > 70:
-            risk_score += 20
-            explanation_parts.append("Person bent over or kneeling")
+        # If person spans most of frame height = STANDING/SITTING (good)
+        # If person is only in middle = BENT/FALLEN (bad)
+        height_coverage = bh / h
+        top_margin = person_top / h
+
+        # Only penalize if person is NOT at top of frame and is short
+        if height_coverage < 0.4 and top_margin > 0.2:  # Short person, not at top
+            risk_score += 30
+            explanation_parts.append(f"Short posture (height coverage: {height_coverage:.1%})")
 
         # Rule 2: Aspect ratio (width vs height)
+        # NORMAL SITTING: height > width (vertical person)
+        # NORMAL STANDING: height > width (vertical person)
+        # BENDING: height ≈ width (more square)
+        # FALLEN: width > height (horizontal person)
         aspect_ratio = bw / (bh + 0.001)
 
-        if aspect_ratio > 0.8:  # More wide than tall = lying down
-            risk_score += 40
-            explanation_parts.append("Posture is horizontal (may be on ground)")
-        elif aspect_ratio > 0.6:  # Medium ratio = bending
+        if aspect_ratio > 1.0:  # Much wider than tall = DEFINITELY lying down
+            risk_score += 50
+            explanation_parts.append(f"Horizontal posture (width {aspect_ratio:.1f}x height)")
+        elif aspect_ratio > 0.7:  # Moderately wide = bending
             risk_score += 20
-            explanation_parts.append("Posture is bent")
+            explanation_parts.append(f"Bent posture (aspect ratio {aspect_ratio:.2f})")
+        # else: aspect_ratio < 0.7 = standing or sitting (normal)
 
-        # Rule 3: Motion analysis
+        # Rule 3: Motion analysis (but be lenient)
         motion_score, motion_type = self.motion_detector.detect_motion(frame)
 
-        if motion_type == 'falling':
-            risk_score += 30
-            explanation_parts.append(f"High motion detected ({motion_score:.0f}%)")
-        elif motion_type == 'moving':
-            risk_score += 10
-            explanation_parts.append(f"Moderate motion ({motion_score:.0f}%)")
+        if motion_type == 'falling' and motion_score > 60:  # Only high motion
+            risk_score += 20
+            explanation_parts.append(f"Sudden movement ({motion_score:.0f}%)")
 
-        # Classify posture
-        if risk_score > 70:
+        # Classify posture based on aspect ratio (most reliable)
+        if aspect_ratio > 1.0:
             posture = 'falling'
-        elif risk_score > 40:
+        elif aspect_ratio > 0.7:
             posture = 'bending'
-        elif aspect_ratio < 0.3:  # Very tall = standing
+        elif height_coverage > 0.7:
             posture = 'standing'
         else:
             posture = 'sitting'
 
+        # Cap risk score
+        risk_score = min(100, max(0, risk_score))
+
         if not explanation_parts:
-            explanation = 'Patient appears stable and upright'
+            explanation = f'Patient {posture} normally (aspect ratio: {aspect_ratio:.2f})'
         else:
             explanation = ' | '.join(explanation_parts)
 
-        return posture, min(100, risk_score), explanation
+        return posture, risk_score, explanation
 
 
 class FallDetectionSystem:
