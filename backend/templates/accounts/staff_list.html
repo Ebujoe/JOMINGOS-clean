@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% block title %}Staff Management{% endblock %}
+{% block nav_staff %}active{% endblock %}
+{% block nav_staff_open %}menu-open{% endblock %}
+{% block nav_staff_list %}active{% endblock %}
+
+{% block content %}
+<div class="app-content-header">
+  <div class="container-fluid">
+    <div class="row align-items-center">
+      <div class="col-sm-6"><h1 class="mb-0"><i class="bi bi-person-badge me-2"></i>Staff Management</h1></div>
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-end mb-0">
+          <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+          <li class="breadcrumb-item active">Staff</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app-content">
+  <div class="container-fluid">
+
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-3" role="alert">
+      {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+
+    <!-- Staff stats info boxes -->
+    <div class="row g-3 mb-4">
+      {% for code, label in role_choices %}
+      <div class="col-md-3 col-6">
+        <div class="info-box">
+          <span class="info-box-icon text-bg-{% if code == 'admin' %}danger{% elif code == 'doctor' %}primary{% elif code == 'nurse' %}success{% else %}warning{% endif %} shadow-sm">
+            <i class="bi {% if code == 'admin' %}bi-shield-check{% elif code == 'doctor' %}bi-stethoscope{% elif code == 'nurse' %}bi-heart-pulse{% else %}bi-person-heart{% endif %} fs-4"></i>
+          </span>
+          <div class="info-box-content">
+            <span class="info-box-text">{{ label }}s</span>
+            <span class="info-box-number">
+                {% if code == 'admin' %}
+                    {{ admin_count }}
+                {% elif code == 'doctor' %}
+                    {{ doctor_count }}
+                {% elif code == 'nurse' %}
+                    {{ nurse_count }}
+                {% elif code == 'care_assistant' %}
+                    {{ care_assistant_count }}
+                {% elif code == 'family' %}
+                    {{ family_count }}
+                {% else %}
+                    0
+                {% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Filter & search -->
+    <div class="card mb-4">
+      <div class="card-body py-3">
+        <form method="get" class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" name="q" class="form-control" placeholder="Search name or username..." value="{{ query }}">
+            </div>
+          </div>
+          <div class="col-md-3">
+            <select name="role" class="form-select form-select-sm">
+              <option value="">All Roles</option>
+              {% for code, label in role_choices %}
+              <option value="{{ code }}" {% if role_filter == code %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary btn-sm flex-grow-1"><i class="bi bi-funnel me-1"></i>Filter</button>
+            <a href="{% url 'staff_list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x-circle"></i></a>
+            <a href="{% url 'staff_add' %}" class="btn btn-success btn-sm flex-grow-1"><i class="bi bi-plus-lg me-1"></i>Add</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Staff table -->
+    <div class="card">
+      <div class="card-header bg-white">
+        <h3 class="card-title fw-bold"><i class="bi bi-table me-2"></i>Staff Accounts ({{ staff.count }})</h3>
+        <div class="card-tools">
+          <button type="button" class="btn btn-tool" data-lte-toggle="card-collapse"><i class="bi bi-dash-lg"></i></button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th>Staff Member</th><th>Username</th><th>Role</th>
+                <th>Job Title</th><th>Phone</th><th>Status</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for member in staff %}
+              <tr>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="patient-avatar bg-{{ member.role_badge_color }} bg-opacity-10 text-{{ member.role_badge_color }}" style="width:34px;height:34px;font-size:.75rem;flex-shrink:0;">
+                      {{ member.initials }}
+                    </div>
+                    <div>
+                      <div class="fw-semibold small">{{ member.get_full_name|default:member.username }}</div>
+                      <div class="text-muted" style="font-size:.7rem;">{{ member.email }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="small">{{ member.username }}</td>
+                <td><span class="badge text-bg-{{ member.role_badge_color }}" style="font-size:.65rem;">{{ member.get_role_display }}</span></td>
+                <td class="small text-muted">{{ member.job_title|default:"—" }}</td>
+                <td class="small">{{ member.phone_number|default:"—" }}</td>
+                <td>
+                  {% if member.is_active %}
+                    <span class="badge text-bg-success" style="font-size:.65rem;"><i class="bi bi-check-circle me-1"></i>Active</span>
+                  {% else %}
+                    <span class="badge text-bg-secondary" style="font-size:.65rem;"><i class="bi bi-x-circle me-1"></i>Inactive</span>
+                  {% endif %}
+                  {% if member.is_on_duty %}
+                    <span class="badge text-bg-info ms-1" style="font-size:.65rem;">On Duty</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <a href="{% url 'staff_edit' member.pk %}" class="btn btn-sm btn-outline-primary" style="font-size:.7rem;padding:.2rem .5rem;">
+                    <i class="bi bi-pencil"></i>
+                  </a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="7" class="text-center text-muted py-4">No staff found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer bg-white">
+        <small class="text-muted">Total: {{ staff.count }} staff accounts</small>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

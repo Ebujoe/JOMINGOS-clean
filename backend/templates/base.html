@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <title>{% block title %}Jomingos{% endblock %} | Jomingos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="color-scheme" content="light dark"/>
+
+  <!-- Fonts -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css" crossorigin="anonymous"/>
+  <!-- OverlayScrollbars -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css" crossorigin="anonymous"/>
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" crossorigin="anonymous"/>
+  <!-- AdminLTE -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta3/dist/css/adminlte.min.css" crossorigin="anonymous"/>
+
+  <style>
+    :root {
+      --cv-primary: #1B4F8A;
+      --cv-teal: #0E7C7B;
+      --cv-accent: #16A085;
+    }
+    .brand-link { background: linear-gradient(135deg, #1B4F8A, #0E7C7B) !important; }
+    .brand-text { color: #fff !important; font-weight: 700 !important; letter-spacing: 1px; }
+    .brand-image { border-radius: 50%; background: rgba(255,255,255,0.2); padding: 4px; }
+    .sidebar-dark-primary .nav-sidebar>.nav-item>.nav-link.active,
+    .nav-sidebar .nav-item>.nav-link.active { background: linear-gradient(90deg,#1B4F8A,#0E7C7B) !important; color:#fff !important; }
+    .small-box { border-radius: 12px; transition: transform .2s; }
+    .small-box:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,.15); }
+    .info-box { border-radius: 12px; border: none; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+    .card { border: none; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+    .card-header { border-radius: 12px 12px 0 0 !important; border-bottom: 1px solid rgba(0,0,0,.06); }
+    .patient-avatar { width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem; }
+    .timeline-item-icon { width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem; }
+    .badge-role-admin { background:#dc3545; }
+    .badge-role-doctor { background:#0d6efd; }
+    .badge-role-nurse { background:#198754; }
+    .badge-role-care_assistant { background:#ffc107;color:#000; }
+    .allergy-badge { background: #ffe5e5; color: #c0392b; border:1px solid #f8b4b4; }
+    .vital-ok { color: #198754; }
+    .vital-warn { color: #fd7e14; }
+    .vital-danger { color: #dc3545; }
+    .app-header { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    .content-header h1 { font-size:1.4rem; font-weight:700; color: var(--cv-primary); }
+    .nav-header { font-size:.65rem; letter-spacing:.08rem; }
+    @media (prefers-color-scheme: dark) {
+      .card, .info-box { box-shadow: 0 2px 10px rgba(0,0,0,.3); }
+    }
+
+
+        @media (prefers-color-scheme: dark) {
+        .card, .info-box {
+            box-shadow: 0 2px 10px rgba(0,0,0,.3);
+        }
+    }
+
+    /* AI CHATBOT */
+
+    .ai-chat-button {
+        position: fixed;
+        right: 28px;
+        bottom: 28px;
+        width: 62px;
+        height: 62px;
+        border-radius: 50%;
+        border: none;
+        background: linear-gradient(135deg, #1B4F8A, #0E7C7B);
+        color: white;
+        font-size: 27px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 6px 20px rgba(0,0,0,.25);
+        cursor: pointer;
+        z-index: 9999;
+    }
+
+    .ai-chat-button:hover {
+        transform: scale(1.06);
+    }
+
+    .ai-chat-window {
+        display: none;
+        position: fixed;
+        right: 28px;
+        bottom: 105px;
+        width: 380px;
+        height: 520px;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,.25);
+        overflow: hidden;
+        z-index: 9999;
+        flex-direction: column;
+        
+    }
+
+    .ai-chat-window.open {
+        display: flex;
+    }
+
+    .ai-chat-header {
+        background: linear-gradient(135deg, #1B4F8A, #0E7C7B);
+        color: white;
+        padding: 15px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .ai-chat-messages {
+        flex: 1;
+        padding: 16px;
+        overflow-y: auto;
+        background: #f5f7fa;
+    }
+
+    .ai-message {
+        padding: 10px 13px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        max-width: 85%;
+        font-size: 14px;
+        line-height: 1.4;
+    }
+
+    .ai-message.bot {
+        background: white;
+        color: #212529;
+        border: 1px solid #ddd;
+    }
+
+    .ai-message.user {
+        background: #1B4F8A;
+        color: white;
+        margin-left: auto;
+    }
+
+    .ai-chat-input {
+        display: flex;
+        padding: 12px;
+        border-top: 1px solid #ddd;
+        background: white;
+    }
+
+    .ai-chat-input input {
+        flex: 1;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 10px;
+        outline: none;
+    }
+
+    .ai-chat-input button {
+        margin-left: 8px;
+        width: 42px;
+        border: none;
+        border-radius: 8px;
+        background: #0E7C7B;
+        color: white;
+    }
+
+
+  </style>
+
+
+
+  {% block extra_css %}{% endblock %}
+</head>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
+<div class="app-wrapper">
+
+  <!-- ===== TOPBAR ===== -->
+  <nav class="app-header navbar navbar-expand bg-body">
+    <div class="container-fluid">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button">
+            <i class="bi bi-list fs-5"></i>
+          </a>
+        </li>
+        <li class="nav-item d-none d-md-block">
+          <span class="nav-link text-muted small">
+            <i class="bi bi-calendar3 me-1"></i>
+            <span id="live-date"></span>
+          </span>
+        </li>
+      </ul>
+
+      <ul class="navbar-nav ms-auto">
+        <!-- Notifications -->
+        <li class="nav-item dropdown">
+          <a class="nav-link" data-bs-toggle="dropdown" href="#">
+            <i class="bi bi-bell-fill"></i>
+            <span class="navbar-badge badge text-bg-warning">{% block notif_count %}0{% endblock %}</span>
+          </a>
+          <div class="dropdown-menu dropdown-menu-lg dropdown-menu-end p-0">
+            <span class="dropdown-item dropdown-header fw-bold">Notifications</span>
+            <div class="dropdown-divider"></div>
+            <a href="{% url 'patient_list' %}" class="dropdown-item">
+              <i class="bi bi-people-fill me-2 text-primary"></i> View all patients
+            </a>
+            <div class="dropdown-divider"></div>
+            <a href="{% url 'dashboard' %}" class="dropdown-item dropdown-footer">Go to Dashboard</a>
+          </div>
+        </li>
+
+        <!-- Fullscreen -->
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-lte-toggle="fullscreen">
+            <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>
+            <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display:none;"></i>
+          </a>
+        </li>
+
+        <!-- User menu -->
+        <li class="nav-item dropdown user-menu">
+          <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+            <span class="patient-avatar bg-primary text-white me-1" style="width:32px;height:32px;font-size:.75rem;display:inline-flex;vertical-align:middle;">
+              {{ request.user.initials }}
+            </span>
+            <span class="d-none d-md-inline">{{ request.user.get_full_name|default:request.user.username }}</span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
+            <li class="user-header text-bg-primary py-3 text-center">
+              <div class="patient-avatar bg-white text-primary mx-auto mb-2" style="width:56px;height:56px;font-size:1.3rem;">
+                {{ request.user.initials }}
+              </div>
+              <p class="mb-0 fw-bold">{{ request.user.get_full_name|default:request.user.username }}</p>
+              <small>{{ request.user.get_role_display }} &bull; {{ request.user.job_title|default:"Jomingos" }}</small>
+            </li>
+            <li class="user-footer px-3 py-2 d-flex justify-content-between">
+              <a href="{% url 'profile' %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-person me-1"></i>Profile
+              </a>
+              <a href="{% url 'logout' %}" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-box-arrow-right me-1"></i>Sign Out
+              </a>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
+    <div class="sidebar-brand">
+      <a href="{% url 'dashboard' %}" class="brand-link px-3 py-3">
+        <span class="patient-avatar bg-white text-primary me-2" style="width:36px;height:36px;">
+          <i class="bi bi-heart-pulse-fill fs-6"></i>
+        </span>
+        <span class="brand-text fw-bold fs-6">Jomingos</span>
+      </a>
+    </div>
+
+    <div class="sidebar-wrapper">
+      <nav class="mt-2">
+        <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="navigation" data-accordion="false">
+
+          <!-- Dashboard -->
+          <li class="nav-item">
+            <a href="{% url 'dashboard' %}" class="nav-link {% block nav_dashboard %}{% endblock %}">
+              <i class="nav-icon bi bi-speedometer2"></i>
+              <p>Dashboard</p>
+            </a>
+          </li>
+
+          <!-- Patients -->
+          <li class="nav-item {% block nav_patients_open %}{% endblock %}">
+            <a href="#" class="nav-link {% block nav_patients %}{% endblock %}">
+              <i class="nav-icon bi bi-people-fill"></i>
+              <p>Patients <i class="nav-arrow bi bi-chevron-right"></i></p>
+            </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item">
+                <a href="{% url 'patient_list' %}" class="nav-link {% block nav_patient_list %}{% endblock %}">
+                  <i class="nav-icon bi bi-circle"></i><p>All Patients</p>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="{% url 'patient_add' %}" class="nav-link {% block nav_patient_add %}{% endblock %}">
+                  <i class="nav-icon bi bi-circle"></i><p>Register Patient</p>
+                </a>
+              </li>
+            </ul>
+          </li>
+
+          <!-- Care Notes -->
+          <li class="nav-item">
+            <a href="{% url 'patient_list' %}" class="nav-link {% block nav_notes %}{% endblock %}">
+              <i class="nav-icon bi bi-journal-text"></i>
+              <p>Care Notes</p>
+            </a>
+          </li>
+
+          <!-- Medications -->
+          <li class="nav-item">
+            <a href="{% url 'patient_list' %}" class="nav-link {% block nav_meds %}{% endblock %}">
+              <i class="nav-icon bi bi-capsule"></i>
+              <p>Medications</p>
+            </a>
+          </li>
+
+          <!-- Vitals -->
+          <li class="nav-item">
+            <a href="{% url 'patient_list' %}" class="nav-link {% block nav_vitals %}{% endblock %}">
+              <i class="nav-icon bi bi-heart-pulse"></i>
+              <p>Vital Signs</p>
+            </a>
+          </li>
+
+          {% if request.user.is_admin %}
+          <li class="nav-header">ADMINISTRATION</li>
+          <!-- Staff -->
+          <li class="nav-item {% block nav_staff_open %}{% endblock %}">
+            <a href="#" class="nav-link {% block nav_staff %}{% endblock %}">
+              <i class="nav-icon bi bi-person-badge"></i>
+              <p>Staff <i class="nav-arrow bi bi-chevron-right"></i></p>
+            </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item">
+                <a href="{% url 'staff_list' %}" class="nav-link {% block nav_staff_list %}{% endblock %}">
+                  <i class="nav-icon bi bi-circle"></i><p>All Staff</p>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="{% url 'staff_add' %}" class="nav-link {% block nav_staff_add %}{% endblock %}">
+                  <i class="nav-icon bi bi-circle"></i><p>Add Staff</p>
+                </a>
+              </li>
+            </ul>
+          </li>
+
+          <!-- Scheduler -->
+          <li class="nav-item">
+            <a href="{% url 'scheduler_dashboard' %}" class="nav-link {% block nav_scheduler %}{% endblock %}">
+              <i class="nav-icon bi bi-calendar3"></i>
+              <p>AI Staff Scheduler</p>
+            </a>
+          </li>
+          {% endif %}
+
+          <li class="nav-header">LABELS</li>
+          <li class="nav-item">
+            <a href="#" class="nav-link">
+              <i class="nav-icon bi bi-circle-fill text-danger"></i><p>Urgent Care</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link">
+              <i class="nav-icon bi bi-circle-fill text-warning"></i><p>Review Required</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link">
+              <i class="nav-icon bi bi-circle-fill text-success"></i><p>Stable</p>
+            </a>
+          </li>
+
+        </ul>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="app-main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="app-footer">
+    <div class="float-end d-none d-sm-inline text-muted small">
+      <i class="bi bi-shield-check text-success me-1"></i>Secure &bull; WCAG 2.1 AA
+    </div>
+    <strong class="text-muted small">
+      <i class="bi bi-heart-pulse-fill text-danger me-1"></i>
+      Jomingos &copy; {% now "Y" %} &mdash; Healthcare Home Documentation Platform
+    </strong>
+  </footer>
+
+</div><!-- /.app-wrapper -->
+
+<!-- ========================================= -->
+<!-- JOMINGOS AI CLINICAL ASSISTANT -->
+<!-- ========================================= -->
+
+<div id="ai-chat-window" class="ai-chat-window">
+
+    <div class="ai-chat-header">
+        <div>
+            <i class="bi bi-robot me-2"></i>
+            <strong>Jomingos AI Assistant</strong>
+        </div>
+
+        <button type="button"
+                class="btn-close btn-close-white"
+                onclick="toggleAIChat()">
+        </button>
+    </div>
+
+    <div id="ai-chat-messages" class="ai-chat-messages">
+
+        <div class="ai-message bot">
+            Hello {{ request.user.first_name|default:request.user.username }}.
+            I can help you review patient risk information.
+        </div>
+
+    </div>
+
+    <div class="ai-chat-input">
+        <input
+            id="ai-question"
+            type="text"
+            placeholder="Ask about a patient..."
+            autocomplete="off"
+        >
+
+        <button onclick="sendAIQuestion()">
+            <i class="bi bi-send-fill"></i>
+        </button>
+
+        <div style="display:none;">
+           {% csrf_token %}
+        </div>
+    </div>
+
+</div>
+
+
+<!-- Floating AI button -->
+<button
+    id="ai-chat-button"
+    class="ai-chat-button"
+    onclick="toggleAIChat()"
+    title="Jomingos AI Assistant"
+>
+    <i class="bi bi-robot"></i>
+</button>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/browser/overlayscrollbars.browser.es5.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-beta3/dist/js/adminlte.min.js" crossorigin="anonymous"></script>
+
+<script>
+  // Live date/time in topbar
+  function updateDate() {
+    const now = new Date();
+    document.getElementById('live-date').textContent = now.toLocaleDateString('en-GB', {weekday:'short',day:'numeric',month:'short',year:'numeric'});
+  }
+  updateDate();
+  setInterval(updateDate, 60000);
+
+  // OverlayScrollbars
+  document.addEventListener("DOMContentLoaded", () => {
+    const sidebarWrapper = document.querySelector(".sidebar-wrapper");
+    if (sidebarWrapper) {
+      OverlayScrollbarsGlobal.OverlayScrollbars(sidebarWrapper, { scrollbars: { autoHide: "leave" } });
+    }
+  });
+
+  // Auto-dismiss alerts
+  setTimeout(() => {
+    document.querySelectorAll('.alert-dismissible').forEach(el => {
+      const alert = bootstrap.Alert.getOrCreateInstance(el);
+      alert.close();
+    });
+  }, 4000);
+
+
+  // Auto-dismiss alerts
+setTimeout(() => {
+    document.querySelectorAll('.alert-dismissible').forEach(el => {
+        const alert = bootstrap.Alert.getOrCreateInstance(el);
+        alert.close();
+    });
+}, 4000);
+
+
+// ================================
+// AI CHATBOT
+// ================================
+
+function toggleAIChat() {
+    const chat = document.getElementById("ai-chat-window");
+
+    if (!chat) {
+        console.error("AI chat window not found");
+        return;
+    }
+
+    chat.classList.toggle("open");
+}
+
+
+
+async function sendAIQuestion() {
+    const input = document.getElementById("ai-question");
+    const messages = document.getElementById("ai-chat-messages");
+
+    if (!input || !messages) {
+        console.error("AI chat elements not found");
+        return;
+    }
+
+    const question = input.value.trim();
+
+    if (!question) {
+        return;
+    }
+
+    // Show user message
+    const userMessage = document.createElement("div");
+    userMessage.className = "ai-message user";
+    userMessage.textContent = question;
+    messages.appendChild(userMessage);
+
+    input.value = "";
+
+    // Loading message
+    const loadingMessage = document.createElement("div");
+    loadingMessage.className = "ai-message bot";
+    loadingMessage.textContent = "Checking patient information...";
+    messages.appendChild(loadingMessage);
+
+    messages.scrollTop = messages.scrollHeight;
+
+    try {
+        // -----------------------------
+        // CSRF TOKEN
+        // -----------------------------
+        const csrfInput = document.querySelector(
+            '[name=csrfmiddlewaretoken]'
+        );
+
+        if (!csrfInput) {
+            throw new Error("CSRF token not found");
+        }
+
+        const csrfToken = csrfInput.value;
+
+        // -----------------------------
+        // DETECT QUESTION TYPE
+        // -----------------------------
+        const lowerQuestion = question.toLowerCase();
+
+        let questionKey = "risk";
+        let patientQuery = "";
+
+        // Example:
+        // "what is the risk of patient 123?"
+        // "risk of patient 123"
+        // "check risk for patient 123"
+        // "risk of test patient"
+
+        if (
+            lowerQuestion.includes("risk") &&
+            lowerQuestion.includes("patient")
+        ) {
+            patientQuery = question
+                .replace(/what\s+is\s+the\s+risk\s+of\s+/i, "")
+                .replace(/what's\s+the\s+risk\s+of\s+/i, "")
+                .replace(/check\s+(the\s+)?risk\s+(of|for)\s+/i, "")
+                .replace(/risk\s+(of|for)\s+/i, "")
+                .replace(/^patient\s+/i, "")
+                .replace(/\?/g, "")
+                .trim();
+
+            // If user said "patient 123", remove "patient"
+            patientQuery = patientQuery
+                .replace(/^patient\s+/i, "")
+                .trim();
+        }
+
+        // Name-based risk question:
+        // "risk of test patient"
+        else if (lowerQuestion.includes("risk")) {
+            patientQuery = question
+                .replace(/what\s+is\s+the\s+risk\s+of\s+/i, "")
+                .replace(/what's\s+the\s+risk\s+of\s+/i, "")
+                .replace(/check\s+(the\s+)?risk\s+(of|for)\s+/i, "")
+                .replace(/risk\s+(of|for)\s+/i, "")
+                .replace(/\?/g, "")
+                .trim();
+        }
+
+        if (!patientQuery) {
+            loadingMessage.remove();
+
+            const botMessage = document.createElement("div");
+            botMessage.className = "ai-message bot";
+            botMessage.textContent =
+                "Please ask a patient risk question, for example: 'risk of patient 25' or 'risk of test patient'.";
+
+            messages.appendChild(botMessage);
+            messages.scrollTop = messages.scrollHeight;
+
+            return;
+        }
+
+        console.log("Patient query:", patientQuery);
+
+        // -----------------------------
+        // CALL DJANGO CHATBOT API
+        // -----------------------------
+        const response = await fetch(
+            "/api/chatbot/ask/",
+            {
+                method: "POST",
+
+                credentials: "same-origin",
+
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrfToken
+                },
+
+                body: JSON.stringify({
+                    category: "patient",
+                    question_key: questionKey,
+                    patient_name: patientQuery
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        console.log("Chatbot response:", data);
+
+        loadingMessage.remove();
+
+        const botMessage = document.createElement("div");
+        botMessage.className = "ai-message bot";
+
+        // -----------------------------
+        // SUCCESS
+        // -----------------------------
+        if (response.ok && data.status === "success") {
+
+            if (data.answer) {
+                botMessage.textContent = data.answer;
+            }
+
+            else {
+                botMessage.innerHTML = `
+                    <strong>${data.patient_name || patientQuery}</strong>
+                    <br><br>
+
+                    ML Risk Classification:
+                    <strong>${data.prediction || "Unknown"}</strong>
+
+                    <br><br>
+
+                    High:
+                    ${data.probabilities?.High ?? 0}%
+
+                    <br>
+
+                    Medium:
+                    ${data.probabilities?.Medium ?? 0}%
+
+                    <br>
+
+                    Low:
+                    ${data.probabilities?.Low ?? 0}%
+                `;
+            }
+        }
+
+        // -----------------------------
+        // BACKEND ERROR
+        // -----------------------------
+        else {
+            botMessage.textContent =
+                data.error ||
+                "Unable to retrieve patient information.";
+        }
+
+        messages.appendChild(botMessage);
+
+    }
+
+    catch (error) {
+        loadingMessage.remove();
+
+        const botMessage = document.createElement("div");
+        botMessage.className = "ai-message bot";
+
+        botMessage.textContent =
+            "Unable to connect to the patient risk service.";
+
+        messages.appendChild(botMessage);
+
+        console.error("Chatbot error:", error);
+    }
+
+    messages.scrollTop = messages.scrollHeight;
+}
+
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+        const input =
+            document.getElementById("ai-question");
+
+        if (input) {
+            input.addEventListener(
+                "keydown",
+                function (event) {
+                    if (event.key === "Enter") {
+                        event.preventDefault();
+                        sendAIQuestion();
+                    }
+                }
+            );
+        }
+    }
+);
+
+</script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
+

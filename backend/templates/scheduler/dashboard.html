@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block nav_scheduler %}active{% endblock %}
+
+{% block title %}AI Staff Scheduler{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>AI Staff Scheduler</h1>
+            <p class="text-muted mb-0">
+                Genetic Algorithm based staff rota optimisation
+            </p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+
+            <button
+                type="submit"
+                class="btn btn-primary"
+            >
+                <i class="bi bi-cpu me-1"></i>
+                Generate Optimized Schedule
+            </button>
+        </form>
+    </div>
+
+
+    {% if result %}
+
+    <div class="card mb-4">
+        <div class="card-body">
+
+            <h5>
+                Optimization Result
+            </h5>
+
+            <p class="mb-0">
+                Fitness Score:
+                <strong>
+                    {{ result.fitness }}
+                </strong>
+            </p>
+
+        </div>
+    </div>
+
+
+    {% for key, assignment in result.schedule.items %}
+
+        <div class="card mb-3">
+
+            <div class="card-header">
+                <strong>
+                    {{ key.0 }} —
+                    {{ key.1 }}
+                </strong>
+            </div>
+
+            <div class="card-body">
+
+                <div class="row">
+
+                    <div class="col-md-6">
+
+                        <h6>
+                            Nurses
+                        </h6>
+
+                        {% if assignment.nurses %}
+
+                            <ul>
+                                {% for nurse in assignment.nurses %}
+                                    <li>
+                                        {{ nurse }}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+
+                        {% else %}
+
+                            <p class="text-danger">
+                                No nurse assigned
+                            </p>
+
+                        {% endif %}
+
+                    </div>
+
+
+                    <div class="col-md-6">
+
+                        <h6>
+                            Care Assistants
+                        </h6>
+
+                        {% if assignment.care_assistants %}
+
+                            <ul>
+                                {% for carer in assignment.care_assistants %}
+                                    <li>
+                                        {{ carer }}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+
+                        {% else %}
+
+                            <p class="text-danger">
+                                No care assistant assigned
+                            </p>
+
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    {% endfor %}
+
+    {% else %}
+
+    <div class="alert alert-info">
+        Click
+        <strong>Generate Optimized Schedule</strong>
+        to run the Genetic Algorithm.
+    </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}
