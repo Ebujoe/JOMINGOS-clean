@@ -1,0 +1,339 @@
+<!-- FALL DETECTION WIDGET - Add to Dashboard -->
+
+<style>
+.fall-detection-container {
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    padding: 20px;
+    background: #f9f9f9;
+    margin: 20px 0;
+    max-width: 600px;
+}
+
+.fall-detection-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.fall-detection-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+}
+
+.toggle-switch {
+    width: 50px;
+    height: 26px;
+    background-color: #ccc;
+    border-radius: 13px;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.3s;
+}
+
+.toggle-switch.active {
+    background-color: #4CAF50;
+}
+
+.toggle-slider {
+    width: 22px;
+    height: 22px;
+    background-color: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: left 0.3s;
+}
+
+.toggle-switch.active .toggle-slider {
+    left: 26px;
+}
+
+.video-container {
+    text-align: center;
+    margin: 20px 0;
+}
+
+#fallDetectionVideo {
+    width: 100%;
+    max-width: 500px;
+    border: 2px solid #ccc;
+    border-radius: 5px;
+    display: none;
+}
+
+#fallDetectionStatus {
+    display: none;
+    padding: 15px;
+    border-radius: 5px;
+    margin: 15px 0;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.status-low {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-medium {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.status-high {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.status-indicator {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+.status-low .status-indicator {
+    background-color: #28a745;
+}
+
+.status-medium .status-indicator {
+    background-color: #ffc107;
+}
+
+.status-high .status-indicator {
+    background-color: #dc3545;
+}
+
+.risk-details {
+    text-align: left;
+    margin-top: 10px;
+    font-size: 14px;
+    font-family: monospace;
+}
+
+.risk-score {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+.explanation {
+    font-size: 13px;
+    color: #666;
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-left: 3px solid #999;
+}
+
+.inactive-message {
+    color: #999;
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+}
+</style>
+
+<div class="fall-detection-container">
+    <div class="fall-detection-header">
+        <div class="fall-detection-title">
+            🚨 Fall Detection System
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <label style="font-size: 12px; color: #666;">Enable</label>
+            <div class="toggle-switch" id="fallToggle">
+                <div class="toggle-slider"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="inactive-message" id="inactiveMsg">
+        ✓ Fall detection disabled. Toggle above to activate for this patient.
+    </div>
+
+    <div id="fallDetectionContent" style="display: none;">
+        <!-- Video Stream -->
+        <div class="video-container">
+            <canvas id="fallDetectionCanvas" width="500" height="375" style="border: 2px solid #ccc; border-radius: 5px;"></canvas>
+        </div>
+
+        <!-- Status Display -->
+        <div id="fallDetectionStatus">
+            <div id="statusText"></div>
+            <div class="risk-details">
+                <div>Risk Score: <span id="riskScore" class="risk-score">--</span></div>
+                <div id="posture">Posture: --</div>
+                <div class="explanation" id="explanation"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Fall Detection JavaScript
+class FallDetectionWidget {
+    constructor() {
+        this.active = false;
+        this.stream = null;
+        this.video = null;
+        this.canvas = null;
+        this.ctx = null;
+        this.patientId = null;
+
+        this.init();
+    }
+
+    init() {
+        // Get elements
+        this.toggle = document.getElementById('fallToggle');
+        this.inactiveMsg = document.getElementById('inactiveMsg');
+        this.content = document.getElementById('fallDetectionContent');
+        this.canvas = document.getElementById('fallDetectionCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.statusDiv = document.getElementById('fallDetectionStatus');
+        this.statusText = document.getElementById('statusText');
+
+        // Get patient ID from page (you'll need to set this)
+        this.patientId = document.body.getAttribute('data-patient-id') || 'unknown';
+
+        // Setup toggle
+        this.toggle.addEventListener('click', () => this.toggleDetection());
+    }
+
+    async toggleDetection() {
+        if (!this.active) {
+            // Activate
+            await this.startDetection();
+        } else {
+            // Deactivate
+            this.stopDetection();
+        }
+    }
+
+    async startDetection() {
+        try {
+            // Request webcam access
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user', width: { ideal: 500 }, height: { ideal: 375 } }
+            });
+
+            this.stream = stream;
+            this.active = true;
+
+            // Update UI
+            this.toggle.classList.add('active');
+            this.inactiveMsg.style.display = 'none';
+            this.content.style.display = 'block';
+
+            // Activate on backend
+            await fetch(`/api/fall-detection/activate/${this.patientId}/`, { method: 'POST' });
+
+            // Start processing
+            this.processFrames();
+        } catch (error) {
+            console.error('Webcam access denied:', error);
+            alert('Please allow webcam access to use fall detection');
+        }
+    }
+
+    stopDetection() {
+        this.active = false;
+
+        // Stop stream
+        if (this.stream) {
+            this.stream.getTracks().forEach(track => track.stop());
+        }
+
+        // Update UI
+        this.toggle.classList.remove('active');
+        this.inactiveMsg.style.display = 'block';
+        this.content.style.display = 'none';
+
+        // Deactivate on backend
+        fetch(`/api/fall-detection/deactivate/${this.patientId}/`, { method: 'POST' });
+    }
+
+    async processFrames() {
+        if (!this.active) return;
+
+        const video = document.createElement('video');
+        video.srcObject = this.stream;
+        video.play();
+
+        const processFrame = async () => {
+            if (!this.active) return;
+
+            // Draw video to canvas
+            this.ctx.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
+
+            // Get image data
+            const imageData = this.canvas.toDataURL('image/jpeg').split(',')[1];
+
+            try {
+                // Send to backend
+                const response = await fetch('/api/fall-detection/process/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_base64: imageData,
+                        patient_id: this.patientId
+                    })
+                });
+
+                const result = await response.json();
+
+                // Update display
+                this.updateDisplay(result);
+            } catch (error) {
+                console.error('Fall detection error:', error);
+            }
+
+            // Process next frame (30fps)
+            setTimeout(processFrame, 33);
+        };
+
+        processFrame();
+    }
+
+    updateDisplay(result) {
+        // Update status class
+        this.statusDiv.className = `status-${result.risk_level.toLowerCase()}`;
+        this.statusDiv.style.display = 'block';
+
+        // Update text
+        const levelEmoji = {
+            'LOW': '✅',
+            'MEDIUM': '⚠️',
+            'HIGH': '🚨'
+        };
+
+        this.statusText.innerHTML = `
+            ${levelEmoji[result.risk_level] || '?'}
+            ${result.risk_level} FALL RISK
+        `;
+
+        // Update risk score
+        document.getElementById('riskScore').textContent = result.risk_score.toFixed(1);
+
+        // Update posture
+        document.getElementById('posture').textContent = `Posture: ${result.posture}`;
+
+        // Update explanation
+        document.getElementById('explanation').textContent = result.explanation;
+    }
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    new FallDetectionWidget();
+});
+</script>
