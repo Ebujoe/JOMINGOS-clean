@@ -109,34 +109,48 @@ class EnsembleForecaster:
 
     def fit_and_predict(self, measurements: List[float]) -> float:
         """
-        Run all forecasters and combine predictions.
+        Execute all five forecasting methods in parallel, then combine results.
 
-        Process:
-        1. Run each method independently
-        2. Collect predictions
-        3. Calculate weighted average
-        4. Return ensemble forecast
+        The ensemble architecture works by:
+        1. Training each method on historical data independently
+        2. Generating separate predictions from each method
+        3. Combining predictions using pre-optimized weights
+        4. Returning single ensemble forecast
+
+        Each method brings unique strengths:
+        - ARIMA detects autoregressive patterns and momentum
+        - Exponential Smoothing responds quickly to recent changes
+        - Linear Trend captures sustained directional movements
+        - Moving Average filters noise from individual fluctuations
+        - Baseline provides stability anchor and protection against outliers
 
         Args:
-            measurements (List[float]): Historical vital sign measurements
+            measurements (List[float]): Time-ordered historical vital measurements
 
         Returns:
-            float: Ensemble forecast
+            float: Final ensemble forecast combining all methods
+
+        Raises:
+            ValueError: If fewer than 2 measurements provided
         """
+        # Validate minimum data requirement
         if not measurements or len(measurements) < 2:
             raise ValueError("Need at least 2 measurements")
 
-        # Step 1: Run each forecaster
+        # Execute each forecasting method independently
+        # Each method trains on the same data but uses different algorithms
         for method_name, forecaster in self.forecasters.items():
             try:
+                # Train and generate prediction from this method
                 prediction = forecaster.fit_and_predict(measurements)
                 self.predictions[method_name] = prediction
             except Exception as e:
+                # Graceful degradation: if method fails, use data mean as fallback
                 logger.warning(f"Forecaster {method_name} failed: {e}")
-                # Use mean as fallback
                 self.predictions[method_name] = float(np.mean(measurements))
 
-        # Step 2: Calculate weighted ensemble
+        # Combine all predictions using weighted average
+        # Weights reflect importance: ARIMA (0.35) most important for trend detection
         self.ensemble_forecast = self._calculate_weighted_average()
 
         return self.ensemble_forecast

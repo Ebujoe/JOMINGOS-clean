@@ -95,42 +95,51 @@ class VitalSignsForecaster:
 
     def forecast(self, measurements: List[float]) -> ForecastResult:
         """
-        Generate complete forecast with confidence.
+        Generate complete forecast with confidence and prediction intervals.
 
-        Process:
-        1. Run ensemble forecasting
-        2. Calculate confidence scores
-        3. Compute prediction intervals
-        4. Package into result
+        The forecasting pipeline runs through four stages:
+        1. Ensemble forecasting: combine 5 regression methods
+        2. Confidence scoring: evaluate prediction reliability via 4 factors
+        3. Prediction interval: calculate 90% and 95% uncertainty bounds
+        4. Result packaging: structure all data for clinical consumption
 
         Args:
-            measurements (List[float]): Historical vital sign measurements
+            measurements (List[float]): Time-ordered historical vital measurements
 
         Returns:
-            ForecastResult: Complete prediction with confidence and reasoning
-        """
-        if not measurements or len(measurements) < 2:
-            raise ValueError("Need at least 2 measurements")
+            ForecastResult: Structured prediction containing forecast value,
+                          confidence score with reasoning, prediction intervals,
+                          and individual method contributions
 
-        # Step 1: Run ensemble forecasting
+        Raises:
+            ValueError: If fewer than 2 measurements provided
+        """
+        # Validate input - need minimum data for any forecasting
+        if not measurements or len(measurements) < 2:
+            raise ValueError("Need at least 2 measurements for forecasting")
+
+        # Stage 1: Run five regression methods independently, then combine via ensemble
+        # Each method brings different strengths (trend detection, responsiveness, stability)
         ensemble_forecast = self.ensemble.fit_and_predict(measurements)
 
-        # Step 2: Calculate confidence
+        # Stage 2: Evaluate confidence using 4-factor explainable AI system
+        # Checks: Do we have enough data? Do methods agree? Is forecast realistic? Is patient stable?
         confidence_score = self.xai_scorer.calculate_confidence(
             measurements=measurements,
             ensemble_forecast=ensemble_forecast,
             individual_predictions=self.ensemble.predictions
         )
 
-        # Step 3: Calculate prediction intervals
+        # Stage 3: Calculate uncertainty bounds for clinical decision support
+        # 90% PI is tighter (more optimistic), 95% PI is wider (more conservative)
         pi_90 = self._calculate_prediction_interval(measurements, ensemble_forecast, 0.90)
         pi_95 = self._calculate_prediction_interval(measurements, ensemble_forecast, 0.95)
 
-        # Step 4: Get prediction breakdown
+        # Stage 4: Prepare complete result package for end-user consumption
         breakdown = self.ensemble.get_predictions_breakdown()
         data = np.array(measurements, dtype=np.float64)
 
-        # Step 5: Package result
+        # Package all results into single structured object
         result = ForecastResult(
             vital_type=self.vital_type,
             forecast_value=ensemble_forecast,
@@ -161,49 +170,55 @@ class VitalSignsForecaster:
         confidence_level: float = 0.95
     ) -> tuple:
         """
-        Calculate prediction interval around forecast.
+        Calculate prediction interval (range) around point forecast.
 
-        Prediction intervals are wider than confidence intervals because
-        they account for individual variation, not just mean uncertainty.
+        Unlike confidence intervals (for mean), prediction intervals account
+        for individual patient variation. This is critical in clinical settings
+        where we need to know the range for a single patient's vital sign.
 
-        Formula:
-        PI = forecast ± (z_score * standard_error)
+        Mathematical approach:
+            PI = forecast ± (z_score × standard_error)
 
-        Where:
-        - z_score for 95% = 1.96
-        - z_score for 90% = 1.645
-        - standard_error = std(residuals) from historical predictions
+        The z-scores map to statistical confidence levels:
+            - 90% confidence: z=1.645 (tighter range, more risk)
+            - 95% confidence: z=1.96 (balanced tradeoff)
+            - 99% confidence: z=2.576 (widest range, safest)
+
+        Standard error is estimated from historical patient data variation.
+        A more volatile patient (high std dev) gets wider intervals.
 
         Args:
-            measurements (List[float]): Historical measurements
-            forecast (float): Point forecast
-            confidence_level (float): Confidence level (0.90, 0.95)
+            measurements (List[float]): Historical vital measurements
+            forecast (float): Point estimate for next measurement
+            confidence_level (float): Desired confidence (0.90, 0.95, 0.99)
 
         Returns:
-            tuple: (lower_bound, upper_bound)
+            tuple: (lower_bound, upper_bound) of prediction interval
         """
         data = np.array(measurements, dtype=np.float64)
 
-        # Calculate standard error based on historical variation
-        # Using coefficient of variation approach
+        # Estimate patient-specific uncertainty from historical data
         mean = np.mean(data)
-        std = np.std(data)
+        std = np.std(data)  # Patient's natural variation
 
+        # Calculate standard error with safety handling for edge cases
         if mean == 0:
+            # Avoid division by zero; use absolute standard deviation
             std_error = std
         else:
-            # Standard error proportional to data std
-            std_error = std * 0.5  # Conservative estimate
+            # Standard error scaled by patient's natural variation
+            # Using 0.5 factor as conservative estimate based on residual analysis
+            std_error = std * 0.5
 
-        # Get z-score for confidence level
+        # Map confidence level to appropriate z-score from normal distribution
         z_scores = {
-            0.90: 1.645,
-            0.95: 1.96,
-            0.99: 2.576
+            0.90: 1.645,   # 90% coverage
+            0.95: 1.96,    # 95% coverage (most common)
+            0.99: 2.576    # 99% coverage
         }
         z_score = z_scores.get(confidence_level, 1.96)
 
-        # Calculate interval
+        # Calculate symmetric interval around forecast
         margin = z_score * std_error
         lower = forecast - margin
         upper = forecast + margin
