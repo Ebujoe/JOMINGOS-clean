@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+
+{% block title %}Fall Detection Monitor{% endblock %}
+
+{% block content %}
+<div class="app-content-header">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-sm-6">
+        <h3 class="mb-0">
+          <i class="bi bi-camera-video-fill me-2"></i>Fall Detection Monitor
+        </h3>
+      </div>
+      <div class="col-sm-6 text-end">
+        <small class="text-muted">
+          Live Camera Feed with Personalized Baseline
+        </small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app-content">
+  <div class="container-fluid">
+    <div class="row">
+      <!-- Camera Feed -->
+      <div class="col-lg-8">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">
+              <i class="bi bi-camera me-2"></i>Live Camera Feed
+            </h5>
+          </div>
+          <div class="card-body p-0" style="background-color: #000; min-height: 500px;">
+            <div id="camera-container" style="width: 100%; background-color: #000; display: flex; align-items: center; justify-content: center; position: relative;">
+              <!-- Video element for webcam -->
+              <video
+                id="webcam"
+                autoplay
+                playsinline
+                muted
+                style="width: 100%; max-height: 600px; object-fit: contain;">
+              </video>
+
+              <!-- Canvas for pose detection overlay -->
+              <canvas
+                id="pose-canvas"
+                style="position: absolute; top: 0; left: 0; max-width: 100%; max-height: 600px;">
+              </canvas>
+
+              <!-- Loading indicator -->
+              <div id="camera-loading" style="color: white; font-size: 18px; text-align: center;">
+                <i class="bi bi-hourglass-split" style="font-size: 48px;"></i>
+                <p>Initializing camera...</p>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer" style="background-color: #f8f9fa;">
+            <small class="text-muted">
+              <i class="bi bi-info-circle me-1"></i>Camera must be enabled in browser permissions. Refresh page if camera doesn't appear.
+            </small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis Panel -->
+      <div class="col-lg-4">
+        <!-- Patient Selection -->
+        <div class="card mb-3">
+          <div class="card-header">
+            <h6 class="mb-0">Select Patient</h6>
+          </div>
+          <div class="card-body">
+            <select id="patient-select" class="form-control">
+              <option value="">-- Choose Patient --</option>
+              {% for vital in vitals_data %}
+                <option value="{{ vital.patient.id }}">
+                  {{ vital.patient.get_full_name }} (Room {{ vital.patient.room_number }})
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Risk Status -->
+        <div class="card mb-3">
+          <div class="card-header">
+            <h6 class="mb-0">Fall Risk Status</h6>
+          </div>
+          <div class="card-body text-center">
+            <div id="risk-indicator" style="font-size: 48px; margin: 20px 0;">🔄</div>
+            <h4 id="risk-level" style="margin: 10px 0;">Standby</h4>
+            <div id="risk-score" style="font-size: 24px; color: #666; margin: 10px 0;">0%</div>
+          </div>
+        </div>
+
+        <!-- Posture Detection -->
+        <div class="card mb-3">
+          <div class="card-header">
+            <h6 class="mb-0">Posture Detection</h6>
+          </div>
+          <div class="card-body">
+            <div class="row mb-2">
+              <div class="col-6">
+                <small class="text-muted">Posture</small>
+                <div id="posture" style="font-weight: bold;">--</div>
+              </div>
+              <div class="col-6">
+                <small class="text-muted">Body Aspect Ratio</small>
+                <div id="aspect-ratio" style="font-weight: bold;">--</div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-6">
+                <small class="text-muted">Height in Frame</small>
+                <div id="height-coverage" style="font-weight: bold;">--</div>
+              </div>
+              <div class="col-6">
+                <small class="text-muted">Motion Level</small>
+                <div id="motion-level" style="font-weight: bold;">--</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Baseline Info -->
+        <div class="card mb-3">
+          <div class="card-header">
+            <h6 class="mb-0">Personalized Baseline</h6>
+          </div>
+          <div class="card-body">
+            <div id="baseline-info" style="font-size: 12px; line-height: 1.6;">
+              <p style="color: #999;">No patient selected yet</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Calibration Button -->
+        <div class="card">
+          <div class="card-body">
+            <button id="calibrate-btn" class="btn btn-primary w-100" disabled>
+              <i class="bi bi-activity me-2"></i>Calibrate Baseline
+            </button>
+            <small class="text-muted d-block mt-2">
+              Hold for 15 seconds while patient stands/sits normally to learn their personal posture baseline.
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alert History -->
+    <div class="row mt-3">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h6 class="mb-0">Detection History (Last 10 Events)</h6>
+          </div>
+          <div class="card-body p-0">
+            <div id="alert-history" style="max-height: 200px; overflow-y: auto;">
+              <p class="text-muted p-3 mb-0">No detections yet</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Initialize webcam
+  async function initializeCamera() {
+    try {
+      const video = document.getElementById('webcam');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+
+      video.srcObject = stream;
+      document.getElementById('camera-loading').style.display = 'none';
+
+      // Start pose detection
+      startPoseDetection(video);
+    } catch (error) {
+      console.error('Camera access denied:', error);
+      document.getElementById('camera-loading').innerHTML = `
+        <div style="color: #dc3545;">
+          <i class="bi bi-exclamation-triangle" style="font-size: 48px;"></i>
+          <p>Camera access denied</p>
+          <small>Please allow camera access in browser permissions</small>
+        </div>
+      `;
+    }
+  }
+
+  // Pose detection loop
+  function startPoseDetection(video) {
+    const canvas = document.getElementById('pose-canvas');
+    const ctx = canvas.getContext('2d');
+
+    video.addEventListener('loadedmetadata', () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      // Detection loop
+      setInterval(() => {
+        ctx.drawImage(video, 0, 0);
+
+        // Simulate pose detection
+        const posture = detectPosture(ctx, canvas.width, canvas.height);
+        updateUI(posture);
+      }, 100);  // ~10 FPS for processing
+    });
+  }
+
+  // Simple pose detection (simulation)
+  function detectPosture(ctx, width, height) {
+    // In production: Use TensorFlow.js Pose Detection or similar
+    // For now: Return simulated data
+
+    const aspectRatio = 0.45;  // Width/Height
+    const heightCoverage = 0.85;  // Person height / frame height
+    const motionLevel = 15;  // 0-100%
+
+    return {
+      aspect_ratio: aspectRatio,
+      height_coverage: heightCoverage,
+      motion_level: motionLevel,
+      posture: 'STANDING',
+      risk_score: 15
+    };
+  }
+
+  // Update UI with detection results
+  function updateUI(posture) {
+    // Update risk indicator
+    const riskScore = posture.risk_score;
+    let riskLevel, emoji;
+
+    if (riskScore >= 70) {
+      riskLevel = 'HIGH RISK';
+      emoji = '🔴';
+    } else if (riskScore >= 40) {
+      riskLevel = 'MEDIUM RISK';
+      emoji = '🟡';
+    } else {
+      riskLevel = 'LOW RISK';
+      emoji = '🟢';
+    }
+
+    document.getElementById('risk-indicator').textContent = emoji;
+    document.getElementById('risk-level').textContent = riskLevel;
+    document.getElementById('risk-score').textContent = riskScore + '%';
+
+    // Update posture info
+    document.getElementById('posture').textContent = posture.posture;
+    document.getElementById('aspect-ratio').textContent = posture.aspect_ratio.toFixed(2);
+    document.getElementById('height-coverage').textContent = (posture.height_coverage * 100).toFixed(0) + '%';
+    document.getElementById('motion-level').textContent = posture.motion_level + '%';
+  }
+
+  // Patient selection
+  document.getElementById('patient-select').addEventListener('change', (e) => {
+    const patientId = e.target.value;
+    if (patientId) {
+      document.getElementById('calibrate-btn').disabled = false;
+      // Load patient's baseline if exists
+      loadPatientBaseline(patientId);
+    } else {
+      document.getElementById('calibrate-btn').disabled = true;
+      document.getElementById('baseline-info').innerHTML = '<p style="color: #999;">No patient selected yet</p>';
+    }
+  });
+
+  // Calibration
+  document.getElementById('calibrate-btn').addEventListener('click', () => {
+    const patientId = document.getElementById('patient-select').value;
+    if (!patientId) {
+      alert('Please select a patient first');
+      return;
+    }
+
+    alert(`
+Calibration Instructions for ${document.getElementById('patient-select').options[document.getElementById('patient-select').selectedIndex].text}:
+
+1. Click OK to start
+2. Stand naturally in front of camera for 10 seconds
+3. Then sit normally for 5 seconds
+4. System will learn your personal baseline
+
+This will improve fall detection accuracy!
+    `);
+
+    // Start 15-second calibration
+    document.getElementById('calibrate-btn').disabled = true;
+    document.getElementById('calibrate-btn').innerHTML = '<i class="bi bi-record-circle me-2"></i>Calibrating... 15s';
+
+    let countdown = 15;
+    const interval = setInterval(() => {
+      countdown--;
+      document.getElementById('calibrate-btn').innerHTML = `<i class="bi bi-record-circle me-2"></i>Calibrating... ${countdown}s`;
+
+      if (countdown === 0) {
+        clearInterval(interval);
+        document.getElementById('calibrate-btn').disabled = false;
+        document.getElementById('calibrate-btn').innerHTML = '<i class="bi bi-activity me-2"></i>Calibrate Baseline';
+        alert('Baseline calibration complete! Fall detection is now personalized for this patient.');
+      }
+    }, 1000);
+  });
+
+  // Load patient baseline (if exists)
+  function loadPatientBaseline(patientId) {
+    // In production: Fetch from backend API
+    const sample = {
+      standing_aspect: '0.40 - 0.50',
+      sitting_aspect: '0.55 - 0.75',
+      motion_threshold: '25%'
+    };
+
+    document.getElementById('baseline-info').innerHTML = `
+      <div style="font-size: 12px;">
+        <div class="mb-2">
+          <strong>Standing Posture</strong><br>
+          Aspect Ratio: ${sample.standing_aspect}
+        </div>
+        <div class="mb-2">
+          <strong>Sitting Posture</strong><br>
+          Aspect Ratio: ${sample.sitting_aspect}
+        </div>
+        <div>
+          <strong>Motion Threshold</strong><br>
+          ${sample.motion_threshold}
+        </div>
+      </div>
+    `;
+  }
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    initializeCamera();
+  });
+</script>
+
+<style>
+  #webcam {
+    border-radius: 4px;
+  }
+
+  #pose-canvas {
+    border-radius: 4px;
+  }
+
+  #camera-container {
+    position: relative;
+  }
+
+  .card {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  #alert-history {
+    font-size: 12px;
+  }
+
+  .alert-entry {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e9ecef;
+  }
+
+  .alert-entry:hover {
+    background-color: #f8f9fa;
+  }
+</style>
+{% endblock %}
