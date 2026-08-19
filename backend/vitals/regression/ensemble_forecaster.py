@@ -36,10 +36,10 @@ from typing import Dict, List, Tuple
 from decimal import Decimal
 import logging
 
-from backend.vitals.regression.exponential_smoothing import ExponentialSmoothingForecaster
-from backend.vitals.regression.arima_model import ARIMAForecaster
-from backend.vitals.regression.linear_trend import LinearTrendForecaster
-from backend.vitals.regression.moving_average import MovingAverageForecaster, CumulativeMovingAverageForecaster
+from vitals.regression.exponential_smoothing import ExponentialSmoothingForecaster
+from vitals.regression.arima_model import ARIMAForecaster
+from vitals.regression.linear_trend import LinearTrendForecaster
+from vitals.regression.moving_average import MovingAverageForecaster, CumulativeMovingAverageForecaster
 
 logger = logging.getLogger(__name__)
 

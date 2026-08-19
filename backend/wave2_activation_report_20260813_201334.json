@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-08-13T20:13:34.277878+00:00",
+  "mode": "dry-run",
+  "skip_training": false,
+  "target_unit": null,
+  "units_activated": [],
+  "total_patients": 49,
+  "patients_by_confidence": {
+    "HIGH": 8,
+    "MED-HIGH": 12,
+    "MEDIUM": 19,
+    "MED-LOW": 10
+  },
+  "models_trained": 80,
+  "forecasts_generated": 154,
+  "dashboards_configured": 4,
+  "alert_thresholds_set": 49,
+  "infrastructure_scaled": true,
+  "errors": []
+}

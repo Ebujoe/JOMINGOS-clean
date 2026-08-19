@@ -48,8 +48,8 @@ from typing import List, Dict, Optional
 from dataclasses import dataclass
 import logging
 
-from backend.vitals.regression.ensemble_forecaster import EnsembleForecaster
-from backend.vitals.regression.explainable_ai import ExplainableAIScorer, ConfidenceScore
+from vitals.regression.ensemble_forecaster import EnsembleForecaster
+from vitals.regression.explainable_ai import ExplainableAIScorer, ConfidenceScore
 
 logger = logging.getLogger(__name__)
 
