@@ -12,6 +12,7 @@ import cv2
 import json
 import base64
 import logging
+import numpy as np
 from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
