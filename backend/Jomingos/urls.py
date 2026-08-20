@@ -37,4 +37,5 @@ urlpatterns = [
     path('medications/', include('medications.urls')),
     path('vitals/', include('vitals.urls')),
     path('family/', include('family.urls')),
+    path('ml-risk/', include('risk_classifier.urls')), # added by priyaraj
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
