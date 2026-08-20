@@ -193,6 +193,14 @@
             </a>
           </li>
 
+          <!-- AI Risk Check-->     <!--added by priyaraj -->
+          <li class="nav-item">
+            <a href="{% url 'vitals_check' %}" class="nav-link">
+              <i class="nav-icon bi bi-robot"></i>
+              <p>AI Risk Check</p>
+            </a>
+          </li>
+
           {% if request.user.is_admin %}
           <li class="nav-header">ADMINISTRATION</li>
           <!-- Staff -->
