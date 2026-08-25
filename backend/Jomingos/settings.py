@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'family',
     'deterioration_alerts',
     'experiments',
+    'risk_classifier', # added bu priyaraj
 ]
 
 MIDDLEWARE = [

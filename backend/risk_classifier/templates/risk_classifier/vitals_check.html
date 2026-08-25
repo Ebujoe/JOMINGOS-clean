@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}AI Risk Check{% endblock %}
+{% block nav_vitals %}active{% endblock %}
+
+{% block content %}
+<div class="app-content-header">
+  <div class="container-fluid">
+    <h1><i class="bi bi-robot me-2"></i>AI Risk Check</h1>
+    <p class="text-muted mb-0">
+      Enter a resident's vitals to get an instant risk prediction with the reasons.
+    </p>
+  </div>
+</div>
+
+<div class="app-content">
+  <div class="container-fluid">
+    <div class="row">
+
+      <!-- Vitals Entry Form -->
+      <div class="col-lg-5">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title mb-0"><i class="bi bi-clipboard2-pulse me-2"></i>Enter Vitals</h3>
+          </div>
+          <div class="card-body">
+
+            {% if error %}
+              <div class="alert alert-danger">
+                <i class="bi bi-exclamation-circle me-2"></i>{{ error }}
+              </div>
+            {% endif %}
+
+            <form method="post" action="{% url 'vitals_check' %}">
+              {% csrf_token %}
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Age</label>
+                  <input type="number" step="1" min="0" max="120" name="age" class="form-control"
+                         value="{{ submitted.age|default:'' }}" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Gender</label>
+                  <select name="gender" class="form-select" required>
+                    <option value="" disabled {% if not submitted.gender %}selected{% endif %}>Select...</option>
+                    <option value="Male" {% if submitted.gender == "Male" %}selected{% endif %}>Male</option>
+                    <option value="Female" {% if submitted.gender == "Female" %}selected{% endif %}>Female</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label">Heart Rate (bpm)</label>
+                  <input type="number" step="1" name="heart_rate" class="form-control"
+                         value="{{ submitted.heart_rate|default:'' }}" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Resp Rate (bpm)</label>
+                  <input type="number" step="1" name="resp_rate" class="form-control"
+                         value="{{ submitted.resp_rate|default:'' }}" required>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label">Body Temp (&deg;C)</label>
+                  <input type="number" step="0.1" name="body_temp" class="form-control"
+                         value="{{ submitted.body_temp|default:'' }}" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">SpO2 (%)</label>
+                  <input type="number" step="0.1" name="spo2" class="form-control"
+                         value="{{ submitted.spo2|default:'' }}" required>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label">Systolic BP (mmHg)</label>
+                  <input type="number" step="1" name="systolic_bp" class="form-control"
+                         value="{{ submitted.systolic_bp|default:'' }}" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Diastolic BP (mmHg)</label>
+                  <input type="number" step="1" name="diastolic_bp" class="form-control"
+                         value="{{ submitted.diastolic_bp|default:'' }}" required>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label">On Oxygen</label>
+                  <select name="on_oxygen" class="form-select" required>
+                    <option value="" disabled {% if not submitted.on_oxygen %}selected{% endif %}>Select...</option>
+                    <option value="No" {% if submitted.on_oxygen == "No" %}selected{% endif %}>No</option>
+                    <option value="Yes" {% if submitted.on_oxygen == "Yes" %}selected{% endif %}>Yes</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Consciousness (AVPU)</label>
+                  <select name="consciousness" class="form-select" required>
+                    <option value="" disabled {% if not submitted.consciousness %}selected{% endif %}>Select...</option>
+                    <option value="Alert" {% if submitted.consciousness == "Alert" %}selected{% endif %}>Alert</option>
+                    <option value="Confusion" {% if submitted.consciousness == "Confusion" %}selected{% endif %}>Confusion</option>
+                    <option value="Voice" {% if submitted.consciousness == "Voice" %}selected{% endif %}>Responds to Voice</option>
+                    <option value="Pain" {% if submitted.consciousness == "Pain" %}selected{% endif %}>Responds to Pain</option>
+                    <option value="Unresponsive" {% if submitted.consciousness == "Unresponsive" %}selected{% endif %}>Unresponsive</option>
+                  </select>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary mt-4 w-100">
+                <i class="bi bi-cpu me-2"></i>Predict Risk
+              </button>
+            </form>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Prediction Result -->
+      <div class="col-lg-7">
+        {% if result %}
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title mb-0"><i class="bi bi-graph-up-arrow me-2"></i>Prediction Result</h3>
+            </div>
+            <div class="card-body">
+
+              <div class="d-flex align-items-center mb-4">
+                <span class="badge fs-5 px-3 py-2 me-3
+                  {% if result.prediction == 'Low' %}text-bg-success
+                  {% elif result.prediction == 'Medium' %}text-bg-warning
+                  {% else %}text-bg-danger{% endif %}">
+                  {{ result.prediction }} Risk
+                </span>
+                <span class="text-muted">Confidence: <strong>{{ result.confidence }}%</strong></span>
+              </div>
+
+              {% if result.borderline %}
+                <div class="alert alert-warning">
+                  <i class="bi bi-exclamation-triangle me-2"></i>
+                  This is a borderline case: top two predictions were close.
+                  Recommend a staff review rather than relying on this alone.
+                </div>
+              {% endif %}
+
+              <h6 class="text-muted mb-2">Reasons for this decision:</h6>
+              <ul class="list-group list-group-flush">
+                {% for reason in result.reasons %}
+                  <li class="list-group-item">
+                    <i class="bi bi-dot me-1"></i>{{ reason }}
+                  </li>
+                {% empty %}
+                  <li class="list-group-item text-muted">No specific reasons were flagged.</li>
+                {% endfor %}
+              </ul>
+
+            </div>
+          </div>
+        {% else %}
+          <div class="card">
+            <div class="card-body text-center text-muted py-5">
+              <i class="bi bi-clipboard2-pulse fs-1 d-block mb-3"></i>
+              Fill in the vitals on the left and submit to see a prediction here.
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
