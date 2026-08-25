@@ -38,6 +38,7 @@ class VitalSignsFactory:
         oxygen_saturation=None,
         bp_systolic=None,
         temperature=None,
+        consciousness='A',
         recorded_at=None
     ):
         if recorded_at is None:
@@ -51,6 +52,7 @@ class VitalSignsFactory:
             bp_systolic=bp_systolic,
             bp_diastolic=70,
             temperature=Decimal(str(temperature)) if temperature else None,
+            consciousness=consciousness,
             recorded_at=recorded_at
         )
 
@@ -103,6 +105,58 @@ class NEWS2RiskTests(TestCase):
         level, score = self.engine.calculate_news2_risk(vital)
         self.assertEqual(level, 'high')
         self.assertGreaterEqual(score, 7)
+
+    def test_single_red_flag_parameter_escalates_despite_low_total(self):
+        """Official NEWS2 rule: a single parameter scoring 3 ('red score')
+        must escalate to at least 'medium', even when the aggregate total
+        is low. A respiratory rate of 8/min alone sums to only 3, but is a
+        near-respiratory-arrest emergency the aggregate score would
+        otherwise mask."""
+        vital = VitalSignsFactory.create_vitals(
+            self.patient,
+            heart_rate=75,
+            respiratory_rate=8,  # NEWS2 sub-score = 3 (red flag)
+            oxygen_saturation=98,
+            bp_systolic=115,
+            temperature=37.0,
+        )
+        self.assertTrue(vital.has_news2_red_flag)
+        level, score = self.engine.calculate_news2_risk(vital)
+        self.assertEqual(score, 3)
+        self.assertEqual(level, 'medium')
+
+    def test_unresponsive_consciousness_is_a_red_flag(self):
+        """New confusion/voice/pain/unresponsive on the ACVPU scale scores 3
+        and must also trigger the red-flag escalation, not just deranged
+        physiological parameters."""
+        vital = VitalSignsFactory.create_vitals(
+            self.patient,
+            heart_rate=75,
+            respiratory_rate=16,
+            oxygen_saturation=98,
+            bp_systolic=115,
+            temperature=37.0,
+            consciousness='U',
+        )
+        self.assertTrue(vital.has_news2_red_flag)
+        level, score = self.engine.calculate_news2_risk(vital)
+        self.assertEqual(score, 3)
+        self.assertEqual(level, 'medium')
+
+    def test_no_red_flag_when_all_parameters_normal(self):
+        """Sanity check: a genuinely stable patient has no red flag and
+        stays classified as low risk."""
+        vital = VitalSignsFactory.create_vitals(
+            self.patient,
+            heart_rate=75,
+            respiratory_rate=16,
+            oxygen_saturation=98,
+            bp_systolic=115,
+            temperature=37.0,
+        )
+        self.assertFalse(vital.has_news2_red_flag)
+        level, score = self.engine.calculate_news2_risk(vital)
+        self.assertEqual(level, 'low')
 
 
 class TrendRiskTests(TestCase):
@@ -354,6 +408,28 @@ class AlertDecisionTests(TestCase):
         should_alert, reason = self.engine.should_create_alert(self.patient, 6.0)
         # Depending on trend score, may or may not alert
         self.assertIsNotNone(reason)
+
+    def test_red_flag_parameter_alerts_despite_low_combined_risk(self):
+        """A single critical NEWS2 parameter must trigger an alert even on
+        a patient's very first reading, with no trend data and a combined
+        risk score too low to otherwise cross the 5.0 alert threshold."""
+        VitalSignsFactory.create_vitals(
+            self.patient,
+            heart_rate=75,
+            respiratory_rate=8,  # red flag
+            oxygen_saturation=98,
+            bp_systolic=115,
+            temperature=37.0,
+        )
+        should_alert, reason = self.engine.should_create_alert(self.patient, 3.0)
+        self.assertTrue(should_alert)
+        self.assertIn('RED SCORE', reason)
+
+    def test_no_alert_when_low_risk_and_no_red_flag(self):
+        """Sanity check: should_create_alert still returns False for a
+        genuinely low-risk patient with no vitals and no red flag."""
+        should_alert, reason = self.engine.should_create_alert(self.patient, 3.0)
+        self.assertFalse(should_alert)
 
 
 class ExplanationGenerationTests(TestCase):

@@ -182,13 +182,33 @@ class VitalSigns(models.Model):
         )
 
     @property
+    def has_news2_red_flag(self):
+        """True if any single NEWS2 parameter scores 3 ('red score').
+
+        Per the official RCP NEWS2 spec, a red score in any one parameter
+        mandates at least an urgent ('medium') clinical response even when
+        the aggregate total is low - it exists precisely to catch a single
+        catastrophically deranged vital sign that a summed score can mask
+        (e.g. respiratory rate of 6/min with everything else normal sums
+        to only 3, but is a near-arrest emergency on its own).
+        """
+        return 3 in (
+            self.news2_respiratory_score,
+            self.news2_spo2_score,
+            self.news2_temp_score,
+            self.news2_bp_score,
+            self.news2_hr_score,
+            self.news2_consciousness_score,
+        )
+
+    @property
     def news2_level(self):
         score = self.news2_total
-        if score <= 4:
-            return 'low'
-        if score <= 6:
+        if score >= 7:
+            return 'high'
+        if score >= 5 or self.has_news2_red_flag:
             return 'medium'
-        return 'high'
+        return 'low'
 
     @property
     def news2_color(self):

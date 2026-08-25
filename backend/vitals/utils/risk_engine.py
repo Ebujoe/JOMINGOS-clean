@@ -59,19 +59,16 @@ class RiskAssessmentEngine:
         """
         Calculate risk level based on NEWS2 score alone.
 
+        Delegates to VitalSigns.news2_level, which also accounts for the
+        official NEWS2 "red score" rule (any single parameter scoring 3
+        escalates to at least 'medium' regardless of the aggregate total).
+
         Returns:
             Tuple of (risk_level, score):
             - risk_level: 'low', 'medium', 'high'
             - score: 0-15 (NEWS2 total)
         """
-        news2_score = vital.news2_total
-
-        if news2_score <= 4:
-            return 'low', news2_score
-        elif news2_score <= 6:
-            return 'medium', news2_score
-        else:
-            return 'high', news2_score
+        return vital.news2_level, vital.news2_total
 
     def calculate_trend_risk(self, patient, window_size: int = 4) -> Tuple[str, int]:
         """
@@ -259,6 +256,13 @@ class RiskAssessmentEngine:
         else:
             overall_level = 'critical'
 
+        # A single NEWS2 "red score" (any parameter scoring 3) mandates at
+        # least an urgent/medium response per the official NEWS2 spec, even
+        # when the combined numeric risk is otherwise low (e.g. an isolated
+        # critical reading with no prior trend data to compare against).
+        if vital.has_news2_red_flag and overall_level == 'low':
+            overall_level = 'medium'
+
         # Generate explanation
         explanation = self._generate_explanation(
             vital, news2_score, trend_score, multi_param_analysis
@@ -302,12 +306,14 @@ class RiskAssessmentEngine:
         parts = []
 
         # NEWS2 explanation
-        if news2_score <= 4:
-            parts.append(f"NEWS2 score is {news2_score} (normal range).")
-        elif news2_score <= 6:
-            parts.append(f"NEWS2 score is {news2_score} (elevated).")
-        else:
+        if news2_score >= 7:
             parts.append(f"NEWS2 score is {news2_score} (critical).")
+        elif news2_score >= 5:
+            parts.append(f"NEWS2 score is {news2_score} (elevated).")
+        elif vital.has_news2_red_flag:
+            parts.append(f"NEWS2 score is {news2_score}, but a single parameter is critically abnormal (red score) - urgent review required regardless of the low total.")
+        else:
+            parts.append(f"NEWS2 score is {news2_score} (normal range).")
 
         # Trend explanation
         if trend_score == 0:
@@ -354,6 +360,15 @@ class RiskAssessmentEngine:
             trend_score = self.trend_analyzer.get_trend_score(patient, window_size=4)
             if trend_score > 0:
                 return True, f"MEDIUM RISK with deterioration trend (risk: {combined_risk:.1f})"
+
+        # NEWS2 "red score" override: a single parameter scoring 3 (e.g.
+        # RR <=8, SpO2 <=91, BP <=90, HR <=40 or >=131, new confusion/
+        # unresponsiveness) must trigger at least an urgent alert on its
+        # own, even on a patient's very first reading with no trend data
+        # and a low combined_risk that would otherwise mask it.
+        vital = self.get_latest_vital(patient)
+        if vital and vital.has_news2_red_flag:
+            return True, f"NEWS2 RED SCORE: single parameter critical (NEWS2 {vital.news2_total}, combined risk {combined_risk:.1f})"
 
         return False, ""
 
