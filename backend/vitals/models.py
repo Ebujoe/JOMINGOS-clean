@@ -18,6 +18,18 @@ class VitalSigns(models.Model):
     weight_kg = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
     pain_score = models.IntegerField(null=True, blank=True, help_text='0-10 scale')
 
+    CONSCIOUSNESS_CHOICES = [
+        ('A', 'Alert'),
+        ('C', 'Confusion (new)'),
+        ('V', 'Responds to Voice'),
+        ('P', 'Responds to Pain'),
+        ('U', 'Unresponsive'),
+    ]
+    consciousness = models.CharField(
+        max_length=1, choices=CONSCIOUSNESS_CHOICES, default='A',
+        help_text='ACVPU scale - the 6th NEWS2 parameter'
+    )
+
     recorded_at = models.DateTimeField(default=timezone.now)
     notes = models.TextField(blank=True)
 
@@ -149,13 +161,24 @@ class VitalSigns(models.Model):
         return 3
 
     @property
+    def news2_consciousness_score(self):
+        """ACVPU scale: Alert scores 0; any of Confusion/Voice/Pain/Unresponsive scores 3
+        (per RCP NEWS2 spec - consciousness is scored as a binary alert/not-alert)."""
+        return 0 if self.consciousness == 'A' else 3
+
+    @property
+    def consciousness_status(self):
+        return 'success' if self.consciousness == 'A' else 'danger'
+
+    @property
     def news2_total(self):
         return (
             self.news2_respiratory_score +
             self.news2_spo2_score +
             self.news2_temp_score +
             self.news2_bp_score +
-            self.news2_hr_score
+            self.news2_hr_score +
+            self.news2_consciousness_score
         )
 
     @property
@@ -194,6 +217,47 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 
+
+def notify_staff_of_deterioration_alert(alert):
+    """
+    Push a DashboardNotification (bell icon) to on-duty clinical staff whenever
+    a DeteriorationAlert is created. Falls back to all active clinical staff if
+    nobody is currently marked on-duty, so an alert never goes unseen.
+    """
+    from accounts.models import User
+    from dashboard.models import DashboardNotification
+
+    recipients = User.objects.filter(
+        is_active=True, is_on_duty=True
+    ).exclude(role='family')
+    if not recipients.exists():
+        recipients = User.objects.filter(is_active=True).exclude(role='family')
+
+    priority_to_type = {
+        'critical': 'alert',
+        'high': 'alert',
+        'medium': 'warning',
+        'low': 'info',
+    }
+    priority_to_icon = {
+        'critical': 'bi-exclamation-octagon-fill',
+        'high': 'bi-exclamation-triangle-fill',
+        'medium': 'bi-exclamation-circle',
+        'low': 'bi-info-circle',
+    }
+
+    for user in recipients:
+        DashboardNotification.create_notification(
+            user=user,
+            notification_type=priority_to_type.get(alert.priority, 'warning'),
+            title=f'Deterioration Alert: {alert.patient.get_full_name()}',
+            message=alert.trigger_reason,
+            icon=priority_to_icon.get(alert.priority, 'bi-exclamation-triangle-fill'),
+            action_url=f'/patients/{alert.patient_id}/',
+            action_label='View patient',
+        )
+
+
 @receiver(post_save, sender=VitalSigns)
 def auto_detect_deterioration(sender, instance, created, **kwargs):
     """
@@ -230,6 +294,7 @@ def auto_detect_deterioration(sender, instance, created, **kwargs):
                 news2_spo2_score=assessment['news2']['spo2_score'],
                 news2_bp_score=assessment['news2']['bp_score'],
                 news2_temp_score=assessment['news2']['temp_score'],
+                news2_consciousness_score=assessment['news2']['consciousness_score'],
                 # Trend analysis
                 trend_score=assessment['trend']['score'],
                 # Multi-parameter analysis
@@ -270,7 +335,7 @@ def auto_detect_deterioration(sender, instance, created, **kwargs):
                 }
                 priority = priority_map.get(assessment['risk_level'], 'medium')
 
-                DeteriorationAlert.objects.create(
+                alert = DeteriorationAlert.objects.create(
                     patient=instance.patient,
                     alert_type='research_deterioration_detection',
                     priority=priority,
@@ -281,7 +346,10 @@ def auto_detect_deterioration(sender, instance, created, **kwargs):
                     risk_assessment=risk_record,
                 )
 
-                # ========== STEP 5: LOG ALERT ==========
+                # ========== STEP 5: NOTIFY ON-DUTY STAFF ==========
+                notify_staff_of_deterioration_alert(alert)
+
+                # ========== STEP 6: LOG ALERT ==========
                 print(f"\n{'='*70}")
                 print(f"[DETERIORATION ALERT] {instance.patient.get_full_name()}")
                 print(f"{'='*70}")
@@ -341,6 +409,7 @@ class RiskAssessment(models.Model):
     news2_spo2_score = models.IntegerField()
     news2_bp_score = models.IntegerField()
     news2_temp_score = models.IntegerField()
+    news2_consciousness_score = models.IntegerField(default=0)
 
     # ========================
     # TREND ANALYSIS (3 WINDOWS)

@@ -131,6 +131,8 @@ class ExplainabilityEngine:
             components.append(f"blood pressure ({assessment.news2_bp_score} points)")
         if assessment.news2_temp_score > 0:
             components.append(f"temperature ({assessment.news2_temp_score} points)")
+        if assessment.news2_consciousness_score > 0:
+            components.append(f"consciousness ({assessment.news2_consciousness_score} points)")
 
         if components:
             parts.append(f"Contributing factors: {', '.join(components)}.")
@@ -219,6 +221,14 @@ class ExplainabilityEngine:
                 'severity': 'medium',
                 'explanation': f'Temp score: {assessment.news2_temp_score} points. Fever or hypothermia detected.',
                 'priority': 5,
+            })
+
+        if assessment.news2_consciousness_score > 0:
+            factors.append({
+                'factor': 'Altered Consciousness',
+                'severity': 'critical',
+                'explanation': f'Consciousness score: {assessment.news2_consciousness_score} points. Patient is not alert (ACVPU) - a serious early warning sign.',
+                'priority': 1,
             })
 
         # Add trend factor if present
@@ -435,6 +445,15 @@ class ExplainabilityEngine:
                 score_explanation = "2 points - high fever"
 
             explanations['temperature'] = f"{temp}°C ({status}). {score_explanation}."
+
+        # Consciousness (ACVPU)
+        if vital.consciousness:
+            if vital.consciousness == 'A':
+                score_explanation = "0 points - fully alert"
+            else:
+                score_explanation = "3 points - not alert, a serious early warning sign"
+
+            explanations['consciousness'] = f"{vital.get_consciousness_display()}. {score_explanation}."
 
         return explanations
 

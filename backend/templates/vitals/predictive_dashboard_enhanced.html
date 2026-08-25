@@ -593,12 +593,12 @@
   <div class="projection-controls">
     <div class="projection-label">Clinical Forecast Horizon:</div>
     <div class="projection-buttons">
-      <button class="proj-btn active" onclick="switchProjection('24h')">24 Hours</button>
-      <button class="proj-btn" onclick="switchProjection('7d')">7 Days</button>
-      <button class="proj-btn" onclick="switchProjection('14d')">14 Days</button>
-      <button class="proj-btn" onclick="switchProjection('30d')">30 Days</button>
-      <button class="proj-btn" onclick="switchProjection('60d')">60 Days</button>
-      <button class="proj-btn" onclick="switchProjection('90d')">90 Days</button>
+      <button class="proj-btn active" onclick="switchProjection('24h', this)">24 Hours</button>
+      <button class="proj-btn" onclick="switchProjection('7d', this)">7 Days</button>
+      <button class="proj-btn" onclick="switchProjection('14d', this)">14 Days</button>
+      <button class="proj-btn" onclick="switchProjection('30d', this)">30 Days</button>
+      <button class="proj-btn" onclick="switchProjection('60d', this)">60 Days</button>
+      <button class="proj-btn" onclick="switchProjection('90d', this)">90 Days</button>
     </div>
     <div class="data-sufficiency">
       📊 {{ vitals_count }} readings • Last: {{ last_vital_time }}
@@ -887,12 +887,12 @@
   } catch(e) { console.error('RR Chart error:', e); }
 
   // Projection switching
-  function switchProjection(period) {
+  function switchProjection(period, btnEl) {
     // Update active button
     document.querySelectorAll('.proj-btn').forEach(btn => {
       btn.classList.remove('active');
     });
-    event.target.classList.add('active');
+    if (btnEl) btnEl.classList.add('active');
 
     // Update forecast grid based on selected period
     const forecastData = {{ forecast_data|safe }};
@@ -916,7 +916,7 @@
 
   // Initialize with 24h data
   document.addEventListener('DOMContentLoaded', () => {
-    switchProjection('24h');
+    switchProjection('24h', document.querySelector('.proj-btn'));
   });
 </script>
 

@@ -321,13 +321,6 @@ def dashboard(request):
     # Feature 3: Get KPI metrics
     kpi_metrics = calculate_kpi_metrics()
 
-    # Feature 4: Get unread notifications
-    unread_notifications = get_unread_notifications(request.user, limit=5)
-    notifications_count = DashboardNotification.objects.filter(
-        user=request.user,
-        is_read=False
-    ).count()
-
     # Feature 5: Weather data
     weather_data = get_weather_data()
 
@@ -358,8 +351,6 @@ def dashboard(request):
         'chart_data': json.dumps(chart_data),
         'shift_info': shift_info,
         'kpi_metrics': kpi_metrics,
-        'unread_notifications': unread_notifications,
-        'notifications_count': notifications_count,
         'user_pref': user_pref,
         'dark_mode': user_pref.dark_mode,
     }

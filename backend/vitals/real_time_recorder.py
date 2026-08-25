@@ -79,24 +79,56 @@ class RealTimeDataRecorder:
             }
 
             engine = RiskAssessmentEngine()
-            risk_result = engine.assess_risk(vitals)
+            assessment = engine.assess_patient(vital_obj.patient)
+
+            news2_data = assessment.get('news2', {})
+            trend_data = assessment.get('trend', {})
+            multi_param = assessment.get('multi_parameter', {})
+            news2_score = news2_data.get('score', 0)
+            trend_score = trend_data.get('score', 0)
+            trend_level = trend_data.get('level', 'low')
+            combined_risk = assessment.get('combined_risk', 0)
+            risk_level = assessment.get('risk_level', 'low')
+
+            # This flow log uses its own UPPERCASE vocabulary (ALERT/NORMAL) for
+            # display purposes, independent of the model's lowercase risk_level choices.
+            risk_result = {
+                'news2_score': news2_score,
+                'trend_score': trend_score,
+                'combined_risk': combined_risk,
+                'risk_level': risk_level.upper(),
+                'confidence': assessment.get('confidence', 0),
+            }
 
             flow_entry['step_3_risk_assessment'] = {
                 'status': 'ASSESSED',
-                'news2_score': risk_result.get('news2_score', 0),
-                'trend_score': risk_result.get('trend_score', 0),
-                'combined_risk': risk_result.get('combined_risk', 0),
-                'risk_level': risk_result.get('risk_level', 'unknown'),
+                'news2_score': risk_result['news2_score'],
+                'trend_score': risk_result['trend_score'],
+                'combined_risk': risk_result['combined_risk'],
+                'risk_level': risk_result['risk_level'],
                 'time': (datetime.now() - self.start_time).total_seconds(),
             }
 
             risk_obj = RiskAssessment.objects.create(
-                vital_signs=vital_obj,
-                news2_score=risk_result.get('news2_score', 0),
-                trend_level=risk_result.get('trend_score', 0),
-                multi_param_pattern=risk_result.get('combined_risk', 0),
-                recommendation='Monitor',
+                patient=vital_obj.patient,
+                assessed_at=vital_obj.recorded_at,
+                observation_count=1,
+                news2_total=news2_score,
+                news2_hr_score=news2_data.get('hr_score', 0),
+                news2_rr_score=news2_data.get('rr_score', 0),
+                news2_spo2_score=news2_data.get('spo2_score', 0),
+                news2_bp_score=news2_data.get('bp_score', 0),
+                news2_temp_score=news2_data.get('temp_score', 0),
+                news2_consciousness_score=news2_data.get('consciousness_score', 0),
+                trend_score=trend_score,
+                trend_level=trend_level,
+                multi_param_score=multi_param.get('multi_param_score', 0),
+                multi_param_pattern=multi_param.get('pattern', 'stable'),
+                multi_param_details=multi_param,
+                combined_risk=round(combined_risk),
+                risk_level=risk_level,
             )
+            risk_obj.vital_signs.add(vital_obj)
 
             flow_entry['step_4_risk_stored'] = {
                 'status': 'RISK_RECORD_CREATED',
@@ -110,8 +142,9 @@ class RealTimeDataRecorder:
                 alert_obj = DeteriorationAlert.objects.create(
                     patient_id=self.patient_id,
                     alert_type='research_deterioration_detection',
-                    priority='HIGH' if risk_result.get('risk_level') == 'HIGH' else 'CRITICAL',
-                    message=f"Risk Level: {risk_result.get('risk_level')}",
+                    priority='high' if risk_result.get('risk_level') == 'HIGH' else 'critical',
+                    trigger_value=combined_risk,
+                    trigger_reason=f"Risk Level: {risk_result.get('risk_level')}",
                     risk_assessment=risk_obj,
                 )
 
@@ -119,7 +152,7 @@ class RealTimeDataRecorder:
                     'status': 'ALERT_CREATED',
                     'alert_id': alert_obj.id,
                     'priority': alert_obj.priority,
-                    'message': alert_obj.message,
+                    'message': alert_obj.trigger_reason,
                     'time': (datetime.now() - self.start_time).total_seconds(),
                 }
             else:

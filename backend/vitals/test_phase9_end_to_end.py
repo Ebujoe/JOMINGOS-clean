@@ -5,9 +5,15 @@ Complete end-to-end tests showing data recording, processing, and decision-makin
 Tests demonstrate the full flow from data input to alert generation.
 """
 
+import sys
 import unittest
 from datetime import datetime
 from django.test import TestCase, Client
+
+# These tests print Unicode box-drawing characters; Windows' default console
+# codepage (cp1252) can't encode them, so force UTF-8 stdout when available.
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -24,8 +30,9 @@ class EndToEndTestScenarios(TestCase):
     def setUp(self):
         """Set up test patient"""
         self.patient = Patient.objects.create(
-            patient_id="TEST001",
-            name="Test Patient"
+            first_name="Test",
+            last_name="Patient",
+            date_of_birth="1950-01-01",
         )
         self.client = APIClient()
 
@@ -289,8 +296,9 @@ class RealTimeRecorderTests(TestCase):
     def setUp(self):
         """Set up test patient"""
         self.patient = Patient.objects.create(
-            patient_id="TEST002",
-            name="Recorder Test Patient"
+            first_name="Recorder",
+            last_name="Test Patient",
+            date_of_birth="1950-01-01",
         )
 
     def test_recorder_initialization(self):

@@ -278,6 +278,7 @@ class RiskAssessmentEngine:
                 'spo2_score': vital.news2_spo2_score,
                 'bp_score': vital.news2_bp_score,
                 'temp_score': vital.news2_temp_score,
+                'consciousness_score': vital.news2_consciousness_score,
             },
             'trend': {
                 'score': trend_score,

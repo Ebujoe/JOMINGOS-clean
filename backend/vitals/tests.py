@@ -492,7 +492,12 @@ class RiskAssessmentModelTests(TestCase):
             risk_level='medium',
         )
 
-        assessments = list(RiskAssessment.objects.filter(patient=self.patient))
+        # setUp() saves a VitalSigns record, which triggers a post_save signal that
+        # auto-creates its own RiskAssessment for this patient - scope the query to
+        # just the two records this test created so that side effect doesn't affect it.
+        assessments = list(RiskAssessment.objects.filter(
+            patient=self.patient, id__in=[assessment1.id, assessment2.id]
+        ))
         self.assertEqual(assessments[0].id, assessment2.id)
         self.assertEqual(assessments[1].id, assessment1.id)
 

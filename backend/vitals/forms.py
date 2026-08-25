@@ -12,7 +12,7 @@ class VitalSignsForm(forms.ModelForm):
         model = VitalSigns
         fields = ['temperature', 'bp_systolic', 'bp_diastolic', 'heart_rate',
                   'respiratory_rate', 'oxygen_saturation', 'blood_glucose',
-                  'weight_kg', 'pain_score', 'recorded_at', 'notes']
+                  'weight_kg', 'pain_score', 'consciousness', 'recorded_at', 'notes']
         widgets = {
             'temperature': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '37.0', 'step': '0.1'}),
             'bp_systolic': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '120'}),
@@ -23,5 +23,6 @@ class VitalSignsForm(forms.ModelForm):
             'blood_glucose': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '5.5', 'step': '0.1'}),
             'weight_kg': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '70.0', 'step': '0.1'}),
             'pain_score': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '0', 'min': 0, 'max': 10}),
+            'consciousness': forms.Select(attrs={'class': 'form-select'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
