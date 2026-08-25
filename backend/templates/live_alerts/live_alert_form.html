@@ -1,0 +1,437 @@
+{% extends 'base.html' %}
+{% block title %}Live Alerts — {{ patient.get_full_name }}{% endblock %}
+{% block nav_patients %}active{% endblock %}
+{% block nav_patients_open %}menu-open{% endblock %}
+
+{% block content %}
+<div class="app-content-header">
+  <div class="container-fluid">
+    <div class="row align-items-center">
+      <div class="col-sm-6">
+        <h1 class="mb-0"><i class="bi bi-camera-video-fill me-2"></i>Live Alerts</h1>
+      </div>
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-end mb-0">
+          <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'patient_detail' patient.pk %}">{{ patient.get_full_name }}</a>
+          </li>
+          <li class="breadcrumb-item active">Live Alerts</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app-content">
+  <div class="container-fluid">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <!-- Patient info -->
+        <div class="card mb-3 border-start border-4 border-primary">
+          <div class="card-body py-2 d-flex align-items-center gap-3">
+            <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;flex-shrink:0;">
+              <img src="https://api.dicebear.com/7.x/pixel-art/svg?seed={{ patient.get_full_name }}&size=48" width="48"
+                height="48" alt="{{ patient.get_full_name }}" style="border-radius:50%;">
+            </div>
+            <div class="fw-bold">{{ patient.get_full_name }}</div>
+            <small class="text-muted">Room {{ patient.room_number|default:"—" }} &bull;
+              {{ patient.get_care_level_display }}</small>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header bg-primary text-white">
+            <h3 class="card-title mb-0"><i class="bi bi-camera-video-fill me-2"></i>Room Monitor — Fall Detection</h3>
+          </div>
+          <div class="card-body">
+
+            <!-- LIVE MONITOR PANEL -->
+            <div class="card mb-3 border-start border-4 border-primary" id="monitor-panel">
+              <div class="card-body">
+                <div class="d-flex align-items-center gap-3 mb-2">
+                  <h5 class="mb-0"><i class="bi bi-camera-video-fill text-primary me-2"></i>Room Camera</h5>
+                  <span class="badge bg-secondary" id="monitor-state-badge">Stopped</span>
+                </div>
+                <p class="text-muted small mb-3">
+                  Starts the room camera and watches for falls automatically. When a fall is detected, a snapshot and
+                  timestamp are logged below.
+                </p>
+
+                <div class="d-flex gap-2 align-items-center mb-3">
+                  <button type="button" id="btn-start-monitor" class="btn btn-primary">
+                    <i class="bi bi-play-fill me-1"></i> Start Monitoring
+                  </button>
+                  <button type="button" id="btn-stop-monitor" class="btn btn-danger d-none">
+                    <i class="bi bi-stop-fill me-1"></i> Stop Monitoring
+                  </button>
+                  <div id="monitoring-indicator" class="d-none">
+                    <span class="badge bg-success text-white">
+                      <i class="bi bi-record-fill me-1"></i> Monitoring...
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Canvas the pose model draws to (webcam feed + skeleton overlay) -->
+                <div class="border rounded d-inline-block bg-dark p-1">
+                  <canvas id="pose-canvas" width="300" height="300"></canvas>
+                </div>
+
+                <div id="pose-label-container" class="mt-2 small text-muted"></div>
+
+                <div id="fall-alert-banner" class="alert alert-danger mt-3 d-none">
+                  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                  <strong>Fall detected!</strong> Snapshot captured and logged below.
+                </div>
+              </div>
+            </div>
+
+            <!-- ALERT LOG -->
+            <div class="card">
+              <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>Alert Log</h5>
+              </div>
+              <div class="card-body p-0">
+                <ul class="list-group list-group-flush" id="alert-log-list">
+                  {% for alert in alerts %}
+                <li class="list-group-item d-flex align-items-center gap-3" data-alert-id="{{ alert.id }}">
+                   <img src="{{ alert.snapshot.url }}" width="60" height="60" style="object-fit:cover;border-radius:4px;">
+                    <div class="flex-grow-1">
+                      <div class="fw-semibold text-danger">{{ alert.get_label_display|default:alert.label }}</div>
+                      <small class="text-muted">{{ alert.detected_at }}</small>
+                    </div>
+                  <button type="button" class="btn btn-sm btn-outline-danger btn-delete-alert" data-alert-id="{{ alert.id }}">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </li>
+                  {% empty %}
+                  <li class="list-group-item text-muted small" id="alert-log-empty">No alerts yet.</li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+
+            <!-- CALIBRATION TOOL -->
+            <div class="card mt-3">
+              <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-clipboard-data me-2"></i>Test With a Photo (calibration tool)</h5>
+              </div>
+              <div class="card-body">
+                <p class="text-muted small mb-3">
+                  Upload a single photo (standing, sitting, or lying down) to see exactly what the pose model and
+                  the geometry check compute for it — no camera or live fall required. This is read-only: it never
+                  creates a real alert. Use it to check whether a missed detection is due to the ML confidence, the
+                  torso-visibility/geometry check, or both, so the thresholds above can be tuned against real
+                  examples instead of guesswork.
+                </p>
+                <input type="file" id="test-image-input" accept="image/*" class="form-control mb-3" style="max-width:320px;">
+                <div class="d-flex gap-3 align-items-start flex-wrap">
+                  <canvas id="test-image-canvas" width="300" height="300" class="border rounded bg-dark"></canvas>
+                  <div id="test-image-result" class="small"></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Teachable Machine dependencies (pose) -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
+
+<script>
+const POSE_MODEL_URL = "https://teachablemachine.withgoogle.com/models/AF8PSWQXp/";
+
+// Tuned to minimize false positives (e.g. sitting close to camera being read as "fallen").
+// The Teachable Machine classifier alone is not reliable enough on its own — a low-confidence
+// or partial-body reading can still get a high "fallen" score. Two independent checks must
+// BOTH agree before an alert fires: (1) the ML confidence, and (2) a geometric sanity check
+// on the actual skeleton (torso must be closer to horizontal than vertical). Requiring both
+// is strictly more conservative than either check alone, so it trades some recall (a genuine
+// fall might occasionally be missed if the camera angle is bad) for far fewer false alarms.
+// No pose-classification setup — including this one — can be claimed as 100% accurate; treat
+// these as the two most impactful, honestly-defensible levers available at this layer.
+const FALL_CONFIDENCE_THRESHOLD = 0.95;
+const MIN_KEYPOINT_SCORE = 0.5; // a keypoint below this confidence is treated as "not visible"
+const MIN_TORSO_TILT_DEGREES = 55; // 0deg = perfectly upright, 90deg = perfectly horizontal
+const FALL_STREAK_FRAMES_REQUIRED = 30; // ~2 seconds at ~15fps, tune to your model's actual loop speed
+const ALERT_COOLDOWN_MS = 15000; // don't log a new alert within 15s of the last one
+
+let model, webcam, ctx, labelContainer, maxPredictions;
+let rafId = null;
+let fallStreak = 0;
+let lastAlertAt = 0;
+let monitoring = false;
+
+const btnStart = document.getElementById('btn-start-monitor');
+const btnStop = document.getElementById('btn-stop-monitor');
+const monitorIndicator = document.getElementById('monitoring-indicator');
+const monitorBadge = document.getElementById('monitor-state-badge');
+const fallBanner = document.getElementById('fall-alert-banner');
+const alertLogList = document.getElementById('alert-log-list');
+
+btnStart.addEventListener('click', startMonitoring);
+btnStop.addEventListener('click', stopMonitoring);
+
+async function startMonitoring() {
+    model = await tmPose.load(POSE_MODEL_URL + "model.json", POSE_MODEL_URL + "metadata.json");
+    maxPredictions = model.getTotalClasses();
+
+    const size = 300;
+    webcam = new tmPose.Webcam(size, size, true); // width, height, flip
+    await webcam.setup();
+    await webcam.play();
+
+    const canvas = document.getElementById("pose-canvas");
+    canvas.width = size;
+    canvas.height = size;
+    ctx = canvas.getContext("2d");
+
+    labelContainer = document.getElementById("pose-label-container");
+    labelContainer.innerHTML = '';
+    for (let i = 0; i < maxPredictions; i++) {
+        labelContainer.appendChild(document.createElement("div"));
+    }
+    labelContainer.appendChild(document.createElement("div")); // torso-tilt debug readout
+
+    monitoring = true;
+    btnStart.classList.add('d-none');
+    btnStop.classList.remove('d-none');
+    monitorIndicator.classList.remove('d-none');
+    monitorBadge.textContent = 'Live';
+    monitorBadge.classList.remove('bg-secondary');
+    monitorBadge.classList.add('bg-success');
+
+    window.requestAnimationFrame(loop);
+}
+
+function stopMonitoring() {
+    monitoring = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    if (webcam) webcam.stop();
+
+    btnStart.classList.remove('d-none');
+    btnStop.classList.add('d-none');
+    monitorIndicator.classList.add('d-none');
+    monitorBadge.textContent = 'Stopped';
+    monitorBadge.classList.remove('bg-success');
+    monitorBadge.classList.add('bg-secondary');
+    fallStreak = 0;
+}
+
+async function loop() {
+    if (!monitoring) return;
+    webcam.update();
+    await predict();
+    rafId = window.requestAnimationFrame(loop);
+}
+
+// Returns the torso's tilt from vertical in degrees, using shoulder and hip midpoints,
+// or null if either isn't visible with enough confidence to trust (e.g. sitting close to
+// the camera typically only shows head/shoulders, so hips are absent — that ambiguity
+// must NOT be treated as "consistent with a fall").
+function getTorsoTiltDegrees(pose) {
+    if (!pose || !pose.keypoints) return null;
+    const byPart = {};
+    pose.keypoints.forEach(k => { byPart[k.part] = k; });
+
+    const visible = (part) => byPart[part] && byPart[part].score >= MIN_KEYPOINT_SCORE;
+    const shoulderParts = ['leftShoulder', 'rightShoulder'].filter(visible);
+    const hipParts = ['leftHip', 'rightHip'].filter(visible);
+    if (shoulderParts.length === 0 || hipParts.length === 0) return null;
+
+    const avgPoint = (parts) => ({
+        x: parts.reduce((s, p) => s + byPart[p].position.x, 0) / parts.length,
+        y: parts.reduce((s, p) => s + byPart[p].position.y, 0) / parts.length,
+    });
+    const shoulderMid = avgPoint(shoulderParts);
+    const hipMid = avgPoint(hipParts);
+
+    const dx = Math.abs(hipMid.x - shoulderMid.x);
+    const dy = Math.abs(hipMid.y - shoulderMid.y);
+    return Math.atan2(dx, dy) * (180 / Math.PI); // 0deg = upright torso, 90deg = horizontal torso
+}
+
+async function predict() {
+    const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
+    const prediction = await model.predict(posenetOutput);
+
+    for (let i = 0; i < maxPredictions; i++) {
+        labelContainer.childNodes[i].innerHTML =
+            prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+    }
+
+    const fallen = prediction.find(
+        p => p.className.toLowerCase().includes("fall") && p.probability > FALL_CONFIDENCE_THRESHOLD
+    );
+    const torsoTilt = getTorsoTiltDegrees(pose);
+    const geometryConsistentWithFall = torsoTilt !== null && torsoTilt >= MIN_TORSO_TILT_DEGREES;
+
+    if (labelContainer.childNodes[maxPredictions]) {
+        labelContainer.childNodes[maxPredictions].innerHTML =
+            'Torso tilt: ' + (torsoTilt === null ? 'n/a (torso not fully visible)' : torsoTilt.toFixed(0) + '°');
+    }
+
+    if (fallen && geometryConsistentWithFall) {
+        fallStreak++;
+        if (fallStreak === FALL_STREAK_FRAMES_REQUIRED) {
+            handleFallDetected(fallen.className);
+        }
+    } else {
+        fallStreak = 0;
+    }
+
+    drawPose(pose);
+}
+
+function drawPose(pose) {
+    if (webcam.canvas) {
+        ctx.drawImage(webcam.canvas, 0, 0);
+        if (pose) {
+            tmPose.drawKeypoints(pose.keypoints, 0.5, ctx);
+            tmPose.drawSkeleton(pose.keypoints, 0.5, ctx);
+        }
+    }
+}
+
+function handleFallDetected(label) {
+    const now = Date.now();
+    if (now - lastAlertAt < ALERT_COOLDOWN_MS) return; // avoid duplicate alerts in a row
+    lastAlertAt = now;
+
+    // Capture a snapshot of the canvas at the moment of detection
+    const canvas = document.getElementById("pose-canvas");
+    canvas.toBlob(async (blob) => {
+        const formData = new FormData();
+        formData.append('snapshot', blob, 'fall_snapshot.png');
+        formData.append('label', label);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        try {
+            const response = await fetch("{% url 'live_alert_log' patient.pk %}", {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await response.json();
+
+            if (data.error) {
+                console.error('Failed to log alert:', data.error);
+                return; // stop here — do NOT show the success banner
+            }
+
+            // Only show the banner and update the log AFTER a confirmed save
+            fallBanner.classList.remove('d-none');
+            setTimeout(() => fallBanner.classList.add('d-none'), 5000);
+            prependAlertToLog(data.alert);
+        } catch (err) {
+            console.error('Network error logging alert:', err);
+        }
+    }, 'image/png');
+}
+
+function prependAlertToLog(alert) {
+    const emptyRow = document.getElementById('alert-log-empty');
+    if (emptyRow) emptyRow.remove();
+
+    const li = document.createElement('li');
+    li.className = 'list-group-item d-flex align-items-center gap-3';
+    li.dataset.alertId = alert.id;
+    li.innerHTML = `
+        <img src="${alert.snapshot_url}" width="60" height="60" style="object-fit:cover;border-radius:4px;">
+        <div class="flex-grow-1">
+            <div class="fw-semibold text-danger">${alert.label}</div>
+            <small class="text-muted">${alert.detected_at}</small>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-danger btn-delete-alert" data-alert-id="${alert.id}">
+            <i class="bi bi-trash"></i>
+        </button>
+    `;
+    alertLogList.prepend(li);
+}
+
+alertLogList.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.btn-delete-alert');
+    if (!btn) return;
+
+    const alertId = btn.dataset.alertId;
+    if (!confirm('Delete this alert? This cannot be undone.')) return;
+
+    try {
+        const response = await fetch(`/live-alerts/{{ patient.pk }}/${alertId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        });
+        const data = await response.json();
+        if (data.deleted) {
+            btn.closest('li').remove();
+            if (!alertLogList.querySelector('li')) {
+                alertLogList.innerHTML = '<li class="list-group-item text-muted small" id="alert-log-empty">No alerts yet.</li>';
+            }
+        }
+    } catch (err) {
+        console.error('Failed to delete alert:', err);
+    }
+});
+
+// --- Calibration tool: run the same model + geometry check against a single uploaded photo. ---
+// Read-only — never posts to the server. Useful for checking whether a missed real-world fall
+// failed on the ML confidence, the torso-visibility/geometry check, or both.
+const testImageInput = document.getElementById('test-image-input');
+const testImageCanvas = document.getElementById('test-image-canvas');
+const testImageResult = document.getElementById('test-image-result');
+
+testImageInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    testImageResult.innerHTML = 'Loading model & image…';
+
+    if (!model) {
+        model = await tmPose.load(POSE_MODEL_URL + "model.json", POSE_MODEL_URL + "metadata.json");
+        maxPredictions = model.getTotalClasses();
+    }
+
+    const img = new Image();
+    img.onload = async () => {
+        const size = 300;
+        const tCtx = testImageCanvas.getContext('2d');
+        tCtx.clearRect(0, 0, size, size);
+        const scale = Math.max(size / img.width, size / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        tCtx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+
+        const { pose, posenetOutput } = await model.estimatePose(testImageCanvas);
+        const prediction = await model.predict(posenetOutput);
+        const torsoTilt = getTorsoTiltDegrees(pose);
+
+        if (pose) {
+            tmPose.drawKeypoints(pose.keypoints, 0.5, tCtx);
+            tmPose.drawSkeleton(pose.keypoints, 0.5, tCtx);
+        }
+
+        const fallen = prediction.find(p => p.className.toLowerCase().includes('fall'));
+        const confidenceOk = !!(fallen && fallen.probability > FALL_CONFIDENCE_THRESHOLD);
+        const geometryOk = torsoTilt !== null && torsoTilt >= MIN_TORSO_TILT_DEGREES;
+        const wouldCount = confidenceOk && geometryOk;
+
+        testImageResult.innerHTML = `
+            <div class="mb-1"><strong>Predictions</strong></div>
+            ${prediction.map(p => `<div>${p.className}: ${p.probability.toFixed(3)}</div>`).join('')}
+            <div class="mt-2"><strong>Torso tilt:</strong> ${torsoTilt === null ? 'n/a — hips or shoulders not both visible' : torsoTilt.toFixed(1) + '°'}</div>
+            <div>Confidence check (> ${FALL_CONFIDENCE_THRESHOLD}): ${confidenceOk ? '✅ pass' : '❌ fail'}</div>
+            <div>Geometry check (≥ ${MIN_TORSO_TILT_DEGREES}°): ${geometryOk ? '✅ pass' : '❌ fail'}</div>
+            <div class="mt-2 fw-bold ${wouldCount ? 'text-danger' : 'text-success'}">
+                ${wouldCount ? 'This single frame would count toward a fall alert' : 'This frame would NOT count toward a fall alert'}
+            </div>
+            <div class="text-muted small mt-1">(A real alert also needs this to hold for ${FALL_STREAK_FRAMES_REQUIRED} consecutive live frames — a still photo can only tell you whether one frame passes.)</div>
+        `;
+    };
+    img.onerror = () => { testImageResult.innerHTML = '<span class="text-danger">Could not load that image file.</span>'; };
+    img.src = URL.createObjectURL(file);
+});
+</script>
+{% endblock %}

@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'tasks',
     'family',
     'deterioration_alerts',
+    'live_alerts',
     'experiments',
     'risk_classifier', # added bu priyaraj
 ]

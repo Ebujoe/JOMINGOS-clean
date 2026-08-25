@@ -38,4 +38,5 @@ urlpatterns = [
     path('vitals/', include('vitals.urls')),
     path('family/', include('family.urls')),
     path('ml-risk/', include('risk_classifier.urls')), # added by priyaraj
+    path('live-alerts/', include('live_alerts.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
