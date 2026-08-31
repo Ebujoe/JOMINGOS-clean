@@ -52,6 +52,18 @@ def patient_detail(request, pk):
     recent_meds = Medication.objects.filter(patient=patient).select_related('administered_by')[:5]
     recent_vitals = VitalSigns.objects.filter(patient=patient).select_related('recorded_by')[:5]
     latest_vitals = VitalSigns.objects.filter(patient=patient).order_by('-recorded_at').first()
+    from vitals.models import RiskAssessment
+    latest_assessment = RiskAssessment.objects.filter(patient=patient).order_by('-created_at').first()
+
+    # Risk trend chart data: the actual research metric (NEWS2 + trend + multi-parameter
+    # combined_risk) over successive readings, not just the raw vitals other charts show.
+    import json
+    risk_history_qs = RiskAssessment.objects.filter(patient=patient).order_by('assessed_at')[:30]
+    risk_trend_data = json.dumps({
+        'labels': [ra.assessed_at.strftime('%d %b %H:%M') for ra in risk_history_qs],
+        'news2': [ra.news2_total for ra in risk_history_qs],
+        'combined': [ra.combined_risk for ra in risk_history_qs],
+    })
 
     # Build timeline (combined, sorted)
     timeline = []
@@ -70,6 +82,9 @@ def patient_detail(request, pk):
         'recent_meds': recent_meds,
         'recent_vitals': recent_vitals,
         'latest_vitals': latest_vitals,
+        'latest_assessment': latest_assessment,
+        'risk_trend_data': risk_trend_data,
+        'risk_history_count': risk_history_qs.count(),
         'timeline': timeline,
     })
 

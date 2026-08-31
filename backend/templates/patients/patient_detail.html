@@ -122,12 +122,89 @@
       </div>
     </div>
 
-    <!-- NEWS2 Banner -->
-    <div class="alert alert-{{ latest_vitals.news2_color }} d-flex align-items-center gap-3 mb-3 py-2" role="alert">
-      <i class="bi bi-activity fs-5"></i>
-      <div>
-        <strong>Latest NEWS2 Score: {{ latest_vitals.news2_total }} — {{ latest_vitals.news2_label }}</strong>
-        <span class="ms-3 small opacity-75">RR: {{ latest_vitals.news2_respiratory_score }} | SpO2: {{ latest_vitals.news2_spo2_score }} | Temp: {{ latest_vitals.news2_temp_score }} | BP: {{ latest_vitals.news2_bp_score }} | HR: {{ latest_vitals.news2_hr_score }} | Consciousness: {{ latest_vitals.news2_consciousness_score }}</span>
+    <!-- Deterioration Risk Assessment: NEWS2 + Trend Analysis -->
+    <div class="card shadow-sm mb-3 border-0" style="border-left: 5px solid var(--bs-{{ latest_vitals.news2_color }}) !important;">
+      <div class="card-body py-3">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+          <h6 class="text-uppercase text-muted small mb-0" style="letter-spacing:.05em;">
+            <i class="bi bi-graph-up-arrow me-1"></i>NEWS2 + Trend Analysis — Deterioration Risk Assessment
+          </h6>
+          {% if latest_assessment %}
+          <span class="badge text-bg-{{ latest_vitals.news2_color }} fs-6 px-3 py-2">{{ latest_assessment.get_risk_level_display }} — combined risk {{ latest_assessment.combined_risk }}</span>
+          {% else %}
+          <span class="badge text-bg-{{ latest_vitals.news2_color }} fs-6 px-3 py-2">NEWS2 {{ latest_vitals.news2_total }} — {{ latest_vitals.news2_label }}</span>
+          {% endif %}
+        </div>
+
+        <!-- Combined risk meter: four fixed clinical zones (Low/Medium/High/Critical),
+             not a raw percentage - a combined_risk of 34 and one of 20 both mean
+             "critical", so the meter fills its Critical zone rather than saturating
+             at an uninformative 100%. -->
+        {% if latest_assessment %}
+        <div class="mb-3" title="Combined risk: NEWS2 + trend + multi-parameter">
+          <div class="d-flex" style="height: 10px; border-radius: 5px; overflow: hidden; gap: 2px;">
+            <div class="bg-success" style="flex: 4; opacity: {% if latest_assessment.combined_risk <= 4 %}1{% else %}0.25{% endif %};"></div>
+            <div class="bg-warning" style="flex: 4; opacity: {% if latest_assessment.combined_risk > 4 and latest_assessment.combined_risk <= 8 %}1{% else %}0.25{% endif %};"></div>
+            <div class="bg-orange" style="flex: 4; background-color:#fd7e14; opacity: {% if latest_assessment.combined_risk > 8 and latest_assessment.combined_risk <= 12 %}1{% else %}0.25{% endif %};"></div>
+            <div class="bg-danger" style="flex: 4; opacity: {% if latest_assessment.combined_risk > 12 %}1{% else %}0.25{% endif %};"></div>
+          </div>
+          <div class="d-flex justify-content-between mt-1" style="font-size:.65rem;">
+            <span class="text-{% if latest_assessment.combined_risk <= 4 %}success fw-bold{% else %}muted{% endif %}">Low (0–4)</span>
+            <span class="text-{% if latest_assessment.combined_risk > 4 and latest_assessment.combined_risk <= 8 %}warning fw-bold{% else %}muted{% endif %}">Medium (5–8)</span>
+            <span style="color:{% if latest_assessment.combined_risk > 8 and latest_assessment.combined_risk <= 12 %}#fd7e14{% else %}#6c757d{% endif %};" class="{% if latest_assessment.combined_risk > 8 and latest_assessment.combined_risk <= 12 %}fw-bold{% endif %}">High (9–12)</span>
+            <span class="text-{% if latest_assessment.combined_risk > 12 %}danger fw-bold{% else %}muted{% endif %}">Critical (&gt;12) — actual: {{ latest_assessment.combined_risk }}</span>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Six NEWS2 parameter chips, individually colour-coded -->
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          {% for label, score, value in latest_vitals.news2_chip_data %}
+          <span class="badge rounded-pill px-3 py-2 {% if score == 0 %}text-bg-success{% elif score == 3 %}text-bg-danger{% else %}text-bg-warning{% endif %}">
+            {{ label }}: {{ value }} <span class="opacity-75">(score {{ score }})</span>
+          </span>
+          {% endfor %}
+        </div>
+
+        {% if latest_assessment %}
+        <div class="row g-2 mb-3">
+          <div class="col-6 col-md-4">
+            <div class="p-2 bg-light rounded small">
+              <i class="bi {% if latest_assessment.trend_score > 3 %}bi-arrow-up-circle-fill text-danger{% elif latest_assessment.trend_score > 0 %}bi-arrow-up-right-circle text-warning{% else %}bi-dash-circle text-success{% endif %} me-1"></i>
+              <strong>Trend:</strong> {{ latest_assessment.get_trend_level_display }} (score {{ latest_assessment.trend_score }})
+            </div>
+          </div>
+          <div class="col-6 col-md-4">
+            <div class="p-2 bg-light rounded small">
+              <i class="bi bi-diagram-3 me-1"></i>
+              <strong>Multi-parameter:</strong> {{ latest_assessment.multi_param_pattern }} (+{{ latest_assessment.multi_param_score }})
+            </div>
+          </div>
+          <div class="col-6 col-md-4">
+            <div class="p-2 bg-light rounded small">
+              <i class="bi bi-clock-history me-1"></i>
+              <strong>Assessed:</strong> {{ latest_assessment.assessed_at|date:"d M Y, H:i" }}
+            </div>
+          </div>
+        </div>
+
+        {% if latest_assessment.explanation_text %}
+        <div class="p-2 border rounded small mb-2">
+          <i class="bi bi-info-circle me-1 text-primary"></i><strong>Why this score:</strong> {{ latest_assessment.explanation_text }}
+        </div>
+        {% endif %}
+        {% if latest_assessment.recommendation %}
+        <div class="p-2 border rounded small text-{{ latest_vitals.news2_color }}">
+          <i class="bi bi-clipboard2-pulse me-1"></i><strong>Recommendation:</strong> {{ latest_assessment.recommendation }}
+        </div>
+        {% endif %}
+
+        {% if risk_history_count >= 2 %}
+        <hr class="my-3">
+        <div class="small fw-bold text-muted mb-2"><i class="bi bi-graph-up me-1"></i>Risk trend across {{ risk_history_count }} readings — this is the actual research metric (NEWS2 alone vs. NEWS2 + trend + multi-parameter combined), not just raw vitals</div>
+        <canvas id="riskTrendChart" height="80"></canvas>
+        {% endif %}
+        {% endif %}
       </div>
     </div>
     {% endif %}
@@ -364,4 +441,54 @@
 
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% if risk_history_count >= 2 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  (function() {
+    const data = JSON.parse('{{ risk_trend_data|escapejs }}');
+    const ctx = document.getElementById('riskTrendChart');
+    if (!ctx) return;
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.labels,
+        datasets: [
+          {
+            label: 'NEWS2 alone',
+            data: data.news2,
+            borderColor: '#6c757d',
+            backgroundColor: 'rgba(108,117,125,.08)',
+            borderDash: [5, 4],
+            tension: 0.25,
+            pointRadius: 3,
+          },
+          {
+            label: 'Combined risk (NEWS2 + trend + multi-parameter)',
+            data: data.combined,
+            borderColor: '#dc3545',
+            backgroundColor: 'rgba(220,53,69,.12)',
+            fill: true,
+            tension: 0.25,
+            pointRadius: 4,
+            borderWidth: 2,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { size: 11 } } },
+          tooltip: { mode: 'index', intersect: false },
+        },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'Risk score' } },
+        },
+      },
+    });
+  })();
+</script>
+{% endif %}
 {% endblock %}

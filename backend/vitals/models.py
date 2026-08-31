@@ -226,6 +226,22 @@ class VitalSigns(models.Model):
             'high': 'HIGH RISK'
         }.get(self.news2_level, '')
 
+    @property
+    def news2_chip_data(self):
+        """Display-only packaging of the six NEWS2 components for the UI's
+        colour-coded chip row. Does not compute anything new - it just
+        bundles the existing news2_*_score properties with their raw
+        values and a short label, purely so the template can loop over one
+        list instead of six separate variables."""
+        return [
+            ('RR', self.news2_respiratory_score, self.respiratory_rate if self.respiratory_rate is not None else '—'),
+            ('SpO2', self.news2_spo2_score, f'{self.oxygen_saturation}%' if self.oxygen_saturation is not None else '—'),
+            ('Temp', self.news2_temp_score, f'{self.temperature}°C' if self.temperature is not None else '—'),
+            ('BP', self.news2_bp_score, self.bp_systolic if self.bp_systolic is not None else '—'),
+            ('HR', self.news2_hr_score, self.heart_rate if self.heart_rate is not None else '—'),
+            ('Consciousness', self.news2_consciousness_score, self.get_consciousness_display()),
+        ]
+
 
 # ============================================================================
 # AUTOMATIC DETERIORATION DETECTION
@@ -317,8 +333,10 @@ def auto_detect_deterioration(sender, instance, created, **kwargs):
                 news2_consciousness_score=assessment['news2']['consciousness_score'],
                 # Trend analysis
                 trend_score=assessment['trend']['score'],
+                trend_level=assessment['trend']['level'],
                 # Multi-parameter analysis
                 multi_param_score=assessment['multi_parameter']['multi_param_score'],
+                multi_param_pattern=assessment['multi_parameter']['pattern'],
                 multi_param_details={
                     'pattern': assessment['multi_parameter']['pattern'],
                     'worsening_count': assessment['multi_parameter']['worsening_count'],
@@ -329,6 +347,7 @@ def auto_detect_deterioration(sender, instance, created, **kwargs):
                 combined_risk=round(assessment['combined_risk']),
                 risk_level=assessment['risk_level'],
                 explanation_text=assessment['explanation'],
+                recommendation=assessment['recommendation'],
                 decision_logic={
                     'news2_score': assessment['news2']['score'],
                     'trend_score': assessment['trend']['score'],

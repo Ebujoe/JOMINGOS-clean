@@ -43,7 +43,20 @@ def add_vitals(request, patient_pk):
         v.patient = patient
         v.recorded_by = request.user
         v.save()
-        messages.success(request, f'Vital signs recorded for {patient.get_full_name()}.')
+        # v.save() synchronously triggers auto_detect_deterioration (post_save signal),
+        # so the NEWS2 score, RiskAssessment, and any DeteriorationAlert already exist here.
+        alert = v.deterioration_alerts.order_by('-triggered_at').first()
+        if alert:
+            messages.warning(
+                request,
+                f'Vitals saved for {patient.get_full_name()}. NEWS2: {v.news2_total} ({v.news2_label}). '
+                f'Deterioration alert raised and sent to on-duty staff — {alert.trigger_reason}'
+            )
+        else:
+            messages.success(
+                request,
+                f'Vitals saved for {patient.get_full_name()}. NEWS2: {v.news2_total} ({v.news2_label}). No alert triggered.'
+            )
         return redirect('patient_detail', pk=patient_pk)
     return render(request, 'vitals/vitals_form.html', {'form': form, 'patient': patient})
 

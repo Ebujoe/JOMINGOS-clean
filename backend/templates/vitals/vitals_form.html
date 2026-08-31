@@ -41,17 +41,41 @@
             </div>
           </div>
           <div class="card-body">
-            <form method="post" novalidate>
+            <form method="post" novalidate onsubmit="return handleVitalsSubmit(this)">
               {% csrf_token %}
 
               <!-- Reference ranges info box -->
-              <div class="info-box mb-4" style="border-left:4px solid #0d6efd;">
+              <div class="info-box mb-3" style="border-left:4px solid #0d6efd;">
                 <span class="info-box-icon text-bg-primary shadow-sm"><i class="bi bi-info-circle fs-5"></i></span>
                 <div class="info-box-content">
                   <span class="info-box-text fw-bold">Normal Reference Ranges</span>
                   <span class="info-box-number" style="font-size:.75rem;line-height:1.4;">
                     Temp: 36.1–37.2°C &bull; BP: 90–120/60–80 mmHg &bull; HR: 60–100 bpm &bull; RR: 12–20 &bull; SpO₂: ≥96% &bull; BG: 4.0–7.8 mmol/L
                   </span>
+                </div>
+              </div>
+
+              <!-- Demo preset scenarios: 3 real PhysioNet patients + 1 clearly-labelled constructed example -->
+              <div class="card mb-4 border-0 bg-light">
+                <div class="card-body py-2">
+                  <div class="small fw-bold text-muted mb-2"><i class="bi bi-database-fill-gear me-1"></i>Load a scenario (for demonstration)</div>
+                  <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="loadPreset('stable')">
+                      <i class="bi bi-check-circle me-1"></i>Real PhysioNet Patient — Age 77 (survived)
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-warning" onclick="loadPreset('moderate')">
+                      <i class="bi bi-exclamation-circle me-1"></i>Real PhysioNet Patient — Age 71, confusion (survived)
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="loadPreset('critical')">
+                      <i class="bi bi-exclamation-triangle-fill me-1"></i>Real PhysioNet Patient — Age 90 (died in hospital)
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadPreset('redflag')">
+                      <i class="bi bi-flag-fill me-1"></i>Constructed example — single red-score parameter
+                    </button>
+                  </div>
+                  <div class="small text-muted mt-2" style="font-size:.7rem;">
+                    The first three are real, de-identified patient records from PhysioNet's Computing in Cardiology Challenge 2012 (the same dataset used in this project's evaluation) — not invented data. The fourth is a constructed teaching example, clearly labelled as such, built to isolate the single-parameter "red score" escalation rule.
+                  </div>
                 </div>
               </div>
 
@@ -107,7 +131,7 @@
               </div>
               <div class="d-flex gap-2 justify-content-end mt-3">
                 <a href="{% url 'patient_detail' patient.pk %}" class="btn btn-outline-secondary"><i class="bi bi-x-circle me-1"></i>Cancel</a>
-                <button type="submit" class="btn btn-danger px-4"><i class="bi bi-save me-1"></i>Save Vital Signs</button>
+                <button type="submit" id="saveVitalsBtn" class="btn btn-danger px-4"><i class="bi bi-save me-1"></i>Save Vital Signs</button>
               </div>
             </form>
           </div>
@@ -116,4 +140,67 @@
     </div>
   </div>
 </div>
+
+<script>
+// Demo preset scenarios. The first three are real, de-identified rows taken directly
+// from experiments/data/physionet_2012_seta_cleaned.csv (PhysioNet CinC Challenge 2012,
+// set-a) - the exact dataset this project's evaluation is run against. The fourth is a
+// constructed teaching example, not from PhysioNet, built specifically to demonstrate the
+// single-parameter "red score" escalation rule (Part 2 of the project's technical record)
+// in complete isolation. This does not change any scoring/detection logic - it only
+// pre-fills the same form fields a nurse would type into by hand.
+const VITALS_PRESETS = {
+  stable: {
+    label: 'Real PhysioNet patient #133720, age 77 (survived)',
+    temperature: 36.1, bp_systolic: 113, bp_diastolic: 55, heart_rate: 92,
+    respiratory_rate: 16, oxygen_saturation: 97, consciousness: 'A',
+  },
+  moderate: {
+    label: 'Real PhysioNet patient #140364, age 71 (survived)',
+    temperature: 37.7, bp_systolic: 124, bp_diastolic: 86, heart_rate: 94,
+    respiratory_rate: 22, oxygen_saturation: 93, consciousness: 'U',
+  },
+  critical: {
+    label: 'Real PhysioNet patient #142353, age 90 (died in hospital)',
+    temperature: 36.4, bp_systolic: 112, bp_diastolic: 70, heart_rate: 128,
+    respiratory_rate: 26, oxygen_saturation: 91, consciousness: 'U',
+  },
+  redflag: {
+    label: 'Constructed example: single red-score parameter (respiratory rate = 8, everything else normal)',
+    temperature: 37.0, bp_systolic: 118, bp_diastolic: 76, heart_rate: 72,
+    respiratory_rate: 8, oxygen_saturation: 98, consciousness: 'A',
+  },
+};
+
+function handleVitalsSubmit(form) {
+  const btn = document.getElementById('saveVitalsBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Saving & running risk assessment...';
+  }
+  return true; // allow the normal form submission to proceed
+}
+
+function loadPreset(name) {
+  const p = VITALS_PRESETS[name];
+  if (!p) return;
+  document.getElementById('id_temperature').value = p.temperature;
+  document.getElementById('id_bp_systolic').value = p.bp_systolic;
+  document.getElementById('id_bp_diastolic').value = p.bp_diastolic;
+  document.getElementById('id_heart_rate').value = p.heart_rate;
+  document.getElementById('id_respiratory_rate').value = p.respiratory_rate;
+  document.getElementById('id_oxygen_saturation').value = p.oxygen_saturation;
+  document.getElementById('id_consciousness').value = p.consciousness;
+
+  const dt = document.getElementById('id_recorded_at');
+  if (dt && !dt.value) {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    dt.value = now.toISOString().slice(0, 16);
+  }
+
+  const notes = document.getElementById('id_notes');
+  if (notes) { notes.value = 'Demo scenario loaded: ' + p.label; }
+}
+</script>
 {% endblock %}
